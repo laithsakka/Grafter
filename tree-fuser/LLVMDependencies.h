@@ -1,0 +1,48 @@
+//===--- LLVMDependencies.h -----------------------------------------------===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
+
+
+#ifndef TREE_FUSER_LLVM_DEPENDENCIES
+#define TREE_FUSER_LLVM_DEPENDENCIES
+
+
+#include "clang/AST/DeclBase.h"
+#include "clang/Rewrite/Core/Rewriter.h"
+#include "clang/Frontend/FrontendActions.h"
+#include "clang/Lex/Lexer.h"
+#include "clang/Tooling/CommonOptionsParser.h"
+#include "clang/Tooling/Tooling.h"
+#include "clang/AST/ASTConsumer.h"
+#include "clang/AST/DeclBase.h"
+#include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/ASTMatchers/ASTMatchFinder.h"
+#include "clang/ASTMatchers/ASTMatchers.h"
+#include "clang/Frontend/CompilerInstance.h"
+#include "clang/Frontend/FrontendAction.h"
+#include "clang/Tooling/Tooling.h"
+#include "llvm/Support/CommandLine.h"
+#include <sstream>
+#include <unistd.h>
+
+using namespace llvm;
+
+struct StrictAccessInfo {
+  bool IsReadOnly;
+  int  Id;
+  bool IsLocal;
+  bool IsGlobal;
+};
+
+extern bool hasFuseAnnotation(clang::FunctionDecl *funDecl);
+extern bool hasTreeAnnotation(clang::CXXRecordDecl *recordDecl);
+extern bool hasChildAnnotation(clang::FieldDecl *fieldDecl);
+extern bool hasStrictAccessAnnotation(clang::Decl *decl);
+extern std::vector<StrictAccessInfo> getStrictAccessInfo(clang::Decl *decl);
+#endif 
