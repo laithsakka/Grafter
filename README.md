@@ -16,8 +16,11 @@ Start with cloning LLVM and Clang repos:
 
 download the folder tree-fuser from the repo and put it in thar directory
 > git clone https://github.com/laithsakka/TreeFuser/ tmp
+
 > mv tmp/tree-fuser ./
+
 > rm -rf ./tmp
+
 > cd ..
 
  add the following line to llvm/tools/clang/tools/CMakeLists.txt 
