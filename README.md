@@ -14,7 +14,7 @@ Start with cloning LLVM and Clang repos:
 
 > cd clang/tools
 
-> git clone https://github.com/laithsakka/TreeFuser.git tree-fuser
+> download the folder tree-fuser from the repo and put it in thar directory
 
 > cd ..
 
