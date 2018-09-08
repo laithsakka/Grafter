@@ -14,7 +14,7 @@ Start with cloning LLVM and Clang repos:
 
 > cd clang/tools
 
-download the folder tree-fuser from the repo and put inside llvm/tools/clang/tools
+Download the folder tree-fuser from the repo and put inside llvm/tools/clang/tools
 > git clone https://github.com/laithsakka/TreeFuser/ tmp
 
 > mv tmp/tree-fuser ./
@@ -23,7 +23,7 @@ download the folder tree-fuser from the repo and put inside llvm/tools/clang/too
 
 > cd ..
 
- add the following line to llvm/tools/clang/tools/CMakeLists.txt 
+ Add the following line to llvm/tools/clang/tools/CMakeLists.txt 
  "add_clang_subdirectory(tree-fuser)"
 
 Proceed to a normal LLVM build using a compiler with C++11 support (for GCC use version 4.9 or later):
@@ -40,6 +40,5 @@ Proceed to a normal LLVM build using a compiler with C++11 support (for GCC use 
 
 tree-fuser will be available under bin/. Add this directory to your path to ensure the rest of the commands in this tutorial work.
 
-Note that we use a specific revision of LLVM as we currently rely on a set of patches that are not yet upstreamed.
 
 # USAGE
