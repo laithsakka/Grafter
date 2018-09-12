@@ -1,5 +1,5 @@
 # Treefuser
-TreeFuser is a tool that perform traversals fusion for recursive tree traversals writtn in subet of the c++ language, for more information about the tool check the paper(https://dl.acm.org/citation.cfm?id=3133900).
+TreeFuser is a tool that perform traversals fusion for recursive tree traversals written in subset of the c++ language, for more information about the tool check the paper(https://dl.acm.org/citation.cfm?id=3133900).
 
 # INSTALLATION
 Treefuser uses Clang libraries and by design it is built as one of Clang tools. The build process is not much different from a regular Clang build. The following instructions assumes that you are running under Linux.
