@@ -11,7 +11,8 @@
 
 #include "RecordAnalyzer.h"
 #include "Logger.h"
-
+#include <set>
+#include <stack>
 RecordsStore RecordsAnalyzer::RecordsInfoGlobalStore = RecordsStore();
 
 const set<clang::FieldDecl *> &
@@ -68,22 +69,25 @@ bool RecordsAnalyzer::isScaler(clang::ValueDecl *const Decl) {
 
 bool RecordsAnalyzer::VisitCXXRecordDecl(clang::CXXRecordDecl *RecordDecl) {
 
-  ASTContext *Ctx = &RecordDecl->getASTContext();
-
   RecordInfo *RecordInformation = new RecordInfo();
-  if (RecordsAnalyzer::RecordsInfoGlobalStore[Ctx].count(RecordDecl) &&
-      RecordsAnalyzer::RecordsInfoGlobalStore[Ctx][RecordDecl]) {
-    Logger::getStaticLogger().logWarn(
-        "RecordsAnalyzer::VisitCXXRecordDecl : record allready analysed");
-    return true;
-  }
-
-  RecordsAnalyzer::RecordsInfoGlobalStore[Ctx][RecordDecl] = RecordInformation;
 
   if (!hasTreeAnnotation(RecordDecl)) {
     RecordInformation->IsTreeStructure = false;
     return true;
   }
+
+  Logger::getStaticLogger().logInfo("analyzing " +
+                                    RecordDecl->getNameAsString() + "\n");
+
+  ASTContext *Ctx = &RecordDecl->getASTContext();
+  if (RecordsAnalyzer::RecordsInfoGlobalStore[Ctx].count(RecordDecl) &&
+      RecordsAnalyzer::RecordsInfoGlobalStore[Ctx][RecordDecl]) {
+    Logger::getStaticLogger().logWarn(
+        "RecordsAnalyzer::VisitCXXRecordDecl : record already analyzed");
+    return true;
+  }
+
+  RecordsAnalyzer::RecordsInfoGlobalStore[Ctx][RecordDecl] = RecordInformation;
 
   for (auto *Field : RecordDecl->fields()) {
     if (!hasChildAnnotation(Field))
@@ -91,23 +95,48 @@ bool RecordsAnalyzer::VisitCXXRecordDecl(clang::CXXRecordDecl *RecordDecl) {
 
     if (!Field->getType()->isPointerType()) {
       Logger::getStaticLogger().logError(
-          "child must be poniter and recursive annotation is dropped");
+          "child must be pointer  annotation is dropped");
       Field->dropAttr<clang::AnnotateAttr>();
       abort();
     }
 
-    if (Field->getType()->getPointeeCXXRecordDecl() != RecordDecl) {
-      bool Found = false;
-      for (auto &BaseClass : RecordDecl->bases()) {
-        if (Field->getType()->getPointeeCXXRecordDecl() ==
-            BaseClass.getType()->getAsCXXRecordDecl())
-          Found = true;
+    // Check if the type of the field is recursive
+
+    std::set<const clang::CXXRecordDecl *> DeclTypes;
+
+    std::stack<const clang::CXXRecordDecl *> Stack;
+    Stack.push(RecordDecl);
+
+    while (!Stack.empty()) {
+      const clang::CXXRecordDecl *TopOfStack = Stack.top();
+      Stack.pop();
+      DeclTypes.insert(TopOfStack);
+
+      for (auto &BaseClass : TopOfStack->bases())
+        Stack.push(BaseClass.getType()->getAsCXXRecordDecl());
+    }
+
+    bool IsRecursive = false;
+    //  Stack = std::stack<clang::CXXRecordDecl *const>();
+    assert(Stack.empty());
+
+    Stack.push(Field->getType()->getPointeeCXXRecordDecl());
+    while (!Stack.empty()) {
+      const clang::CXXRecordDecl *TopOfStack = Stack.top();
+      Stack.pop();
+      if (DeclTypes.count(TopOfStack)) {
+        IsRecursive = true;
+        break;
       }
-      if (!Found) {
-        Logger::getStaticLogger().logError(
-            "child must be poniter and recursive annotation is dropped");
-        abort();
-      }
+
+      for (auto &BaseClass : TopOfStack->bases())
+        Stack.push(BaseClass.getType()->getAsCXXRecordDecl());
+    }
+
+    if (!IsRecursive) {
+      Logger::getStaticLogger().logError(
+          "child must be recursive annotation is dropped");
+      abort();
     }
 
     RecordInformation->RecursiveDeclarations.insert(Field);

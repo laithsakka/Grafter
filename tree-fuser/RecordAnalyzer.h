@@ -60,7 +60,7 @@ public:
 
 class RecordsAnalyzer : public clang::RecursiveASTVisitor<RecordsAnalyzer> {
 public:
-  /// Initiate an ast traversal to anaylyze the records source code
+  /// Initiate an ast traversal to analyze the records source code
   void analyzeRecordsDeclarations(const clang::ASTContext &Context);
 
   /// Return recursive field declarations
@@ -76,7 +76,7 @@ public:
   /// Return true if all the member and the nested members are scalers
   static bool isCompleteScaler(clang::ValueDecl *const ValueDecl);
 
-  bool VisitCXXRecordDecl(clang::CXXRecordDecl *s);
+  bool VisitCXXRecordDecl(clang::CXXRecordDecl *RecordDecl);
 
 private:
 
