@@ -28,8 +28,15 @@ typedef std::set<AccessPath *, AccessPathCompare> AccessPathSet;
 class AccessPath {
 private:
   bool parseAccessPath(clang::MemberExpr *MemberExpression);
+
   bool parseAccessPath(clang::DeclRefExpr *DeclRefExpression);
+
+  bool parseAccessPath(clang::CXXStaticCastExpr *CastExpression);
+
+  bool handleNextExpression(clang::Stmt *NextExpression);
+
   void setValueStartIndex();
+
   void appendSymbol(clang::ValueDecl *DeclAccess);
 
   /// An index for the the start index of the value part in splittedAccessPath
@@ -66,6 +73,11 @@ public:
   AccessPath(clang::FunctionDecl *FunctionDeclaration,
              FunctionAnalyzer *Function);
 
+  /// Print the content of the access path
+  void dump() {
+    outs() << "IsLegal:" << IsLegal << ". Content:" << AccessPathString << "\n";
+  }
+
   bool hasValuePart() const;
 
   bool isLegal() const;
@@ -99,7 +111,7 @@ public:
 
   StrictAccessInfo getAnnotationInfo() const { return AnnotationInfo; }
 
-  StrictAccessInfo setAnnotationInfo(StrictAccessInfo& NewValue) {
+  StrictAccessInfo setAnnotationInfo(StrictAccessInfo &NewValue) {
     AnnotationInfo = NewValue;
   }
 
@@ -125,4 +137,4 @@ public:
   }
 };
 
-#endif /* accesspath_hpp */
+#endif

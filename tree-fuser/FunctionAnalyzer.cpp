@@ -20,6 +20,21 @@
 #include <utility>
 #include <vector>
 
+void FunctionAnalyzer::dump() {
+  outs() << " isValidFuse:" << isValidFuse() << "\n";
+  for (auto *Stmt : Statements) {
+    outs() << "statement [ " << Stmt->getStatementId() << "]\n";
+    outs() << "reads: " << Stmt->getAccessPaths().getReadSet().size() << "\n";
+
+    for (auto *AccessPath : Stmt->getAccessPaths().getReadSet())
+      AccessPath->dump();
+
+    outs() << "writes: " << Stmt->getAccessPaths().getWriteSet().size() << "\n";
+    for (auto *AccessPath : Stmt->getAccessPaths().getWriteSet())
+      AccessPath->dump();
+  }
+}
+
 int FunctionAnalyzer::getNumberOfRecursiveCalls() const {
   return CalledChildrenOrderedList.size();
 }
@@ -193,16 +208,11 @@ bool FunctionAnalyzer::collectAccessPath_handleSubExpr(clang::Expr *Expr) {
   }
 
   case clang::Stmt::StmtClass::CallExprClass:
-    if (!collectAccessPath_VisitCallExpr(dyn_cast<clang::CallExpr>(Expr)))
-      return false;
+    return collectAccessPath_VisitCallExpr(dyn_cast<clang::CallExpr>(Expr));
 
-    break;
   case clang::Stmt::StmtClass::CXXMemberCallExprClass:
-    if (!collectAccessPath_VisitCXXMemberCallExpr(
-            dyn_cast<clang::CXXMemberCallExpr>(Expr)))
-      return false;
-
-    break;
+    return collectAccessPath_VisitCXXMemberCallExpr(
+        dyn_cast<clang::CXXMemberCallExpr>(Expr));
 
   case clang::Stmt::StmtClass::GNUNullExprClass:
   case clang::Stmt::StmtClass::IntegerLiteralClass:
@@ -210,6 +220,9 @@ bool FunctionAnalyzer::collectAccessPath_handleSubExpr(clang::Expr *Expr) {
   case clang::Stmt::StmtClass::CXXBoolLiteralExprClass:
   case clang::Stmt::StmtClass::NullStmtClass:
     return true;
+  case clang::Stmt::StmtClass::CXXStaticCastExprClass:
+    return collectAccessPath_VisitStaticCastExpr(
+        dyn_cast<clang::CXXStaticCastExpr>(Expr));
 
   default:
     Logger::getStaticLogger().logError(
@@ -338,6 +351,25 @@ void FunctionAnalyzer::addAccessPath(AccessPath *AccessPath, bool IsWrite) {
   //                                       "]:"+
   //                                        accessPath->getAsStr());
   //
+}
+
+bool FunctionAnalyzer::collectAccessPath_VisitStaticCastExpr(
+    clang::CXXStaticCastExpr *Expr) {
+  auto *SubExpr = Expr->getSubExpr()->IgnoreImplicit();
+
+  if (SubExpr->getStmtClass() == clang::Stmt::StmtClass::MemberExprClass) {
+    AccessPath *NewAccessPath = new AccessPath(SubExpr, this);
+    if (!NewAccessPath->isLegal()) {
+      delete NewAccessPath;
+      return false;
+    }
+    addAccessPath(NewAccessPath, false);
+    return true;
+  } else if (!collectAccessPath_handleSubExpr(SubExpr)) {
+    Logger::getStaticLogger().logError(
+        "error in FunctionAnalyzer::collectAccessPath_VisitStaticCastExpr ");
+    return false;
+  }
 }
 
 bool FunctionAnalyzer::collectAccessPath_VisitBinaryOperator(

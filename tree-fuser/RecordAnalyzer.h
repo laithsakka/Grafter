@@ -76,7 +76,7 @@ public:
   /// Return true if all the member and the nested members are scalers
   static bool isCompleteScaler(clang::ValueDecl *const ValueDecl);
 
-  bool VisitCXXRecordDecl(clang::CXXRecordDecl *RecordDecl);
+  bool VisitCXXRecordDecl(const clang::CXXRecordDecl *RecordDecl);
 
 private:
 

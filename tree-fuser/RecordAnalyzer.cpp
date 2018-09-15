@@ -67,27 +67,27 @@ bool RecordsAnalyzer::isScaler(clang::ValueDecl *const Decl) {
     return false;
 }
 
-bool RecordsAnalyzer::VisitCXXRecordDecl(clang::CXXRecordDecl *RecordDecl) {
+bool RecordsAnalyzer::VisitCXXRecordDecl(
+    const clang::CXXRecordDecl *RecordDecl) {
 
   RecordInfo *RecordInformation = new RecordInfo();
-
-  if (!hasTreeAnnotation(RecordDecl)) {
-    RecordInformation->IsTreeStructure = false;
-    return true;
-  }
-
-  Logger::getStaticLogger().logInfo("analyzing " +
-                                    RecordDecl->getNameAsString() + "\n");
-
   ASTContext *Ctx = &RecordDecl->getASTContext();
+
   if (RecordsAnalyzer::RecordsInfoGlobalStore[Ctx].count(RecordDecl) &&
       RecordsAnalyzer::RecordsInfoGlobalStore[Ctx][RecordDecl]) {
     Logger::getStaticLogger().logWarn(
         "RecordsAnalyzer::VisitCXXRecordDecl : record already analyzed");
     return true;
   }
+  Logger::getStaticLogger().logInfo("analyzing " +
+                                    RecordDecl->getNameAsString() + "\n");
 
   RecordsAnalyzer::RecordsInfoGlobalStore[Ctx][RecordDecl] = RecordInformation;
+
+  if (!hasTreeAnnotation(RecordDecl)) {
+    RecordInformation->IsTreeStructure = false;
+    return true;
+  }
 
   for (auto *Field : RecordDecl->fields()) {
     if (!hasChildAnnotation(Field))
@@ -140,6 +140,32 @@ bool RecordsAnalyzer::VisitCXXRecordDecl(clang::CXXRecordDecl *RecordDecl) {
     }
 
     RecordInformation->RecursiveDeclarations.insert(Field);
+  }
+
+  // Add recursive fields of base type(s) and vice versa
+  std::stack<const clang::CXXRecordDecl *> Stack;
+  Stack.push(RecordDecl);
+  while (!Stack.empty()) {
+    const clang::CXXRecordDecl *TopOfStack = Stack.top();
+    Stack.pop();
+
+    for (auto &BaseClass : TopOfStack->bases())
+      Stack.push(BaseClass.getType()->getAsCXXRecordDecl());
+
+    if (!RecordsAnalyzer::RecordsInfoGlobalStore[Ctx].count(TopOfStack))
+      VisitCXXRecordDecl(TopOfStack);
+
+    auto *BaseRecordInfo =
+        RecordsAnalyzer::RecordsInfoGlobalStore[Ctx][TopOfStack];
+
+    if (!BaseRecordInfo->isTreeStructure())
+      continue;
+
+    for (auto *RecursiveField : RecordInformation->RecursiveDeclarations)
+      BaseRecordInfo->RecursiveDeclarations.insert(RecursiveField);
+
+    for (auto *RecursiveField : BaseRecordInfo->RecursiveDeclarations)
+      RecordInformation->RecursiveDeclarations.insert(RecursiveField);
   }
 
   RecordInformation->IsTreeStructure = 1;

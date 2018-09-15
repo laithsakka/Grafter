@@ -11,7 +11,6 @@
 
 #include "TraversalSynthesizer.h"
 
-
 #define FUSE_CAP 2
 #define diff_CAP 4
 using namespace std;
@@ -101,7 +100,8 @@ void TraversalSynthesizer::setBlockSubPart(
         Decls +=
             "\t" +
             Printer.printStmt(
-                Statement->getStatementInfo()->Stmt, ASTContext->getSourceManager(),
+                Statement->getStatementInfo()->Stmt,
+                ASTContext->getSourceManager(),
                 TraversalsDeclarationsList[TraversalIndex]->getParamDecl(0),
                 NextLabel, TraversalIndex + 1) +
             ";\n";
@@ -114,8 +114,8 @@ void TraversalSynthesizer::setBlockSubPart(
       }
     }
     if (Temp.compare("") != 0) {
-      BlockPart +=
-          "if (truncate_flags &" + toBinaryString((1 << TraversalIndex)) + ") {\n";
+      BlockPart += "if (truncate_flags &" +
+                   toBinaryString((1 << TraversalIndex)) + ") {\n";
       BlockPart += Temp;
       BlockPart += "}\n" + NextLabel + ":\n";
     }
@@ -183,8 +183,9 @@ void TraversalSynthesizer::setCallPart(
     string NextCallName =
         TraversalsDeclarationsList[TraversalId]->getNameAsString();
     CallPartText += CallConditionText + "{\n\t";
-    CallPartText += NextCallName + "(" + "_r->" +
-                    CallNode->getStatementInfo()->getCalledChild()->getNameAsString();
+    CallPartText +=
+        NextCallName + "(" + "_r->" +
+        CallNode->getStatementInfo()->getCalledChild()->getNameAsString();
 
     auto *callExpr = (TraversalIdToCallExpr[TraversalId]);
 
@@ -226,8 +227,20 @@ void TraversalSynthesizer::setCallPart(
   }
 
   CallPartText += CallConditionText + "{\n\t";
-  CallPartText += NextCallName + "(" + "_r->" +
-                  CallNode->getStatementInfo()->getCalledChild()->getNameAsString();
+
+  // Special handling for call with static cast
+  auto FirstArgument =
+      dyn_cast<clang::CallExpr>(CallNode->getStatementInfo()->Stmt)->getArg(0);
+
+  auto *RootDecl = CallNode->getStatementInfo()
+                       ->getEnclosingFunction()
+                       ->getFunctionDecl()
+                       ->getParamDecl(0);
+
+  CallPartText +=
+      NextCallName + "(" +
+      Printer.printStmt(FirstArgument, ASTContext->getSourceManager(), RootDecl,
+                        "", -1);
 
   if (CallingSame) {
     string NextCallParamsText;
@@ -253,7 +266,8 @@ void TraversalSynthesizer::setCallPart(
       }
     }
 
-    NextCallParamsText += ",truncate_flags & " + toBinaryString(ConditionBitMask);
+    NextCallParamsText +=
+        ",truncate_flags & " + toBinaryString(ConditionBitMask);
     CallPartText += NextCallParamsText;
     CallPartText += ");";
     CallPartText += "\n}";
@@ -281,7 +295,8 @@ void TraversalSynthesizer::setCallPart(
       }
     }
 
-    NextCallParamsText += ",truncate_flags & " + toBinaryString(ConditionBitMask);
+    NextCallParamsText +=
+        ",truncate_flags & " + toBinaryString(ConditionBitMask);
     CallPartText += NextCallParamsText;
     CallPartText += ");";
     CallPartText += "\n}";
@@ -378,8 +393,8 @@ void TraversalSynthesizer::generateWriteBackInfo(
       stamentsOderedByTId.resize(TraversalsDeclarationsList.size());
 
     } else {
-      if (ParticipatingTraversals[StatmentsTopologicalOrder[i]->getTraversalId()] ==
-          false)
+      if (ParticipatingTraversals[StatmentsTopologicalOrder[i]
+                                      ->getTraversalId()] == false)
         continue;
       else {
         stamentsOderedByTId[StatmentsTopologicalOrder[i]->getTraversalId()]
@@ -528,7 +543,6 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
     NestedExpressionDepth--;
     break;
   }
-
   case Stmt::StmtClass::DeclRefExprClass: {
     auto *DeclRefExpr = dyn_cast<clang::DeclRefExpr>(Stmt);
     if (DeclRefExpr->getDecl() == this->RootNodeDecl)
@@ -540,7 +554,6 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
       Output += stmtTostr(Stmt, SM);
     break;
   }
-
   case Stmt::StmtClass::ImplicitCastExprClass: {
     Output += "|>";
     print_handleStmt(dyn_cast<clang::ImplicitCastExpr>(Stmt)->getSubExpr(), SM);
@@ -557,7 +570,6 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
 
     break;
   }
-
   case Stmt::StmtClass::IfStmtClass: {
     auto &IfStmt = *dyn_cast<clang::IfStmt>(Stmt);
     // check the condition part first
@@ -589,18 +601,15 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
     }
     break;
   }
-
   case Stmt::StmtClass::ReturnStmtClass:
     Output += "\t truncate_flags&=" +
-              toBinaryString(~(unsigned int)(1 << (FunctionId - 1))) + "; goto " +
-              NextLabel + " ;\n";
+              toBinaryString(~(unsigned int)(1 << (FunctionId - 1))) +
+              "; goto " + NextLabel + " ;\n";
 
     break;
-
   case Stmt::Stmt::NullStmtClass:
     Output += "\t\t;\n";
     break;
-
   case Stmt::StmtClass::DeclStmtClass: {
     auto *DeclStmt = dyn_cast<clang::DeclStmt>(Stmt);
     for (auto *Decl : DeclStmt->decls()) {
@@ -618,14 +627,12 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
     }
     break;
   }
-
   case Stmt::StmtClass::ParenExprClass: {
     auto *ParenExpr = dyn_cast<clang::ParenExpr>(Stmt);
     Output += "(";
     print_handleStmt(ParenExpr->getSubExpr(), SM);
     Output += ")";
   } break;
-
   case Stmt::StmtClass::CXXMemberCallExprClass: {
     auto *CallExpr = dyn_cast<clang::CXXMemberCallExpr>(Stmt);
     print_handleStmt(*(CallExpr->child_begin())->child_begin(), SM);
@@ -644,7 +651,17 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
       Output += ";";
     break;
   }
+  case Stmt::StmtClass::CXXStaticCastExprClass: {
+    auto *CastStmt = dyn_cast<CXXStaticCastExpr>(Stmt);
+    Output +=
+        "static_cast<" + CastStmt->getTypeAsWritten().getAsString() + ">(";
+    print_handleStmt(CastStmt->getSubExpr(), SM);
+    Output += ")";
+    break;
+  }
   default:
+    outs() << "warning ! printing a type that is not explicitly handled";
+    Stmt->dump();
     Output += stmtTostr(Stmt, SM);
   }
   return;
@@ -727,8 +744,8 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
 //
 //     for (int j = 1; j < declList[i]->parameters().size(); j++) {
 //       signeture +=
-//           "," + string(declList[i]->parameters()[j]->getType().getAsString()) +
-//           " _f" + to_string(i + 1) + "_" +
+//           "," + string(declList[i]->parameters()[j]->getType().getAsString())
+//           + " _f" + to_string(i + 1) + "_" +
 //           declList[i]->parameters()[j]->getDeclName().getAsString();
 //     }
 //   }
@@ -740,8 +757,10 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
 //   signeture += ")";
 //   // Now build the Body of the function
 //
-//   string decls; // store all top level declarations here (seen across blocks ,
-//                 // calls only occure on top level (relative to method Body !!)
+//   string decls; // store all top level declarations here (seen across blocks
+//   ,
+//                 // calls only occure on top level (relative to method Body
+//                 !!)
 //
 //   string Body; // the Body next to top level decl
 //
@@ -786,7 +805,8 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
 //         blockPart += "\n_label_B" + blockId + "F" + funcId + ":\n";
 //         blockPart += "if (doF" + funcId + ") {\n";
 //         for (int StatementIndex = 0;
-//              StatementIndex < stamentsOderedByTId[j].size(); StatementIndex++) {
+//              StatementIndex < stamentsOderedByTId[j].size();
+//              StatementIndex++) {
 //
 //           if (stamentsOderedByTId[j][StatementIndex]
 //                   ->getStatementInfo()->Stmt->getStmtClass() ==
@@ -796,8 +816,8 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
 //                 "\t" +
 //                 Printer.printStmt(
 //                     stamentsOderedByTId[j][StatementIndex]->getStatementInfo()->Stmt,
-//                     context_->getSourceManager(), declList[j]->getParamDecl(0),
-//                     next_label, j + 1) +
+//                     context_->getSourceManager(),
+//                     declList[j]->getParamDecl(0), next_label, j + 1) +
 //                 ";\n";
 //
 //           } else {
@@ -823,13 +843,15 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
 //
 //         for (set<DG_Node *>::iterator It =
 //                  ToplogicalOrder[i]->getMergeInfo()->MergedNodes.begin();
-//              It != ToplogicalOrder[i]->getMergeInfo()->MergedNodes.end(); It++) {
+//              It != ToplogicalOrder[i]->getMergeInfo()->MergedNodes.end();
+//              It++) {
 //
 //           TraversalIdToCallExpr[(*It)->getTraversalId()] = (*It);
 //         }
 //
 //       } else {
-//         TraversalIdToCallExpr[ToplogicalOrder[i]->getTraversalId()] = ToplogicalOrder[i];
+//         TraversalIdToCallExpr[ToplogicalOrder[i]->getTraversalId()] =
+//         ToplogicalOrder[i];
 //       }
 //
 //       string CallConditionText = "if ( (false ";
@@ -849,13 +871,14 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
 //             NextCallParamsText +=
 //                 ", " + Printer.printStmt(
 //                            callExpr->getArg(h), context_->getSourceManager(),
-//                            declList[StatementIndex]->getParamDecl(0), "dummy",
-//                            StatementIndex + 1);
+//                            declList[StatementIndex]->getParamDecl(0),
+//                            "dummy", StatementIndex + 1);
 //           }
 //         }
 //       }
 //       CallConditionText += ")==true){\n\t";
-//       // add doFx for each traversal, pass It as is except if traversal is not
+//       // add doFx for each traversal, pass It as is except if traversal is
+//       not
 //       // on the merged Nodes then pass It false
 //       for (int StatementIndex = 0; StatementIndex < declList.size();
 //            StatementIndex++) {
@@ -904,7 +927,8 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
 //
 //     blockPart += "\n_label_B" + blockId + "F" + funcId + ":\n";
 //     blockPart += "if (doF" + funcId + ") {\n";
-//     for (int StatementIndex = 0; StatementIndex < stamentsOderedByTId[j].size();
+//     for (int StatementIndex = 0; StatementIndex <
+//     stamentsOderedByTId[j].size();
 //          StatementIndex++) {
 //
 //       if (stamentsOderedByTId[j][StatementIndex]
@@ -913,8 +937,8 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
 //         decls += "\t" +
 //                  Printer.printStmt(
 //                      stamentsOderedByTId[j][StatementIndex]->getStatementInfo()->Stmt,
-//                      context_->getSourceManager(), declList[j]->getParamDecl(0),
-//                      next_label, j + 1) +
+//                      context_->getSourceManager(),
+//                      declList[j]->getParamDecl(0), next_label, j + 1) +
 //                  ";\n";
 //
 //       } else {
@@ -932,7 +956,8 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
 //   Body += CallPartText;
 //
 //   string fullFun = "//****** this fused method is generated by PLCL\n " +
-//                    signeture + "{\n" + "//first level declarations\n" + decls +
+//                    signeture + "{\n" + "//first level declarations\n" + decls
+//                    +
 //                    "\n//Body\n" + Body + "\n}\n\n";
 //
 //   Rewriter.InsertText(EnclosingFunctionDecl->getLocStart(), fullFun);

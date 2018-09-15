@@ -77,12 +77,18 @@ private:
 
   bool collectAccessPath_VisitBinaryOperator(clang::BinaryOperator *Stmt);
 
+  bool collectAccessPath_VisitStaticCastExpr(clang::CXXStaticCastExpr *Expr);
+
 public:
   FunctionAnalyzer(clang::FunctionDecl *FuncDeclaration);
 
-  std::vector<StatementInfo *>& getStatements(){
+  /// Return the top level statements in the body of the function
+  std::vector<StatementInfo *> &getStatements() {
     return Statements;
   }
+
+  /// Dump information about the analyzed function
+  void dump();
 
   /// Return true if the field is recursively visited by the function
   bool isInCalledChildList(clang::FieldDecl *ChildDecl) const;

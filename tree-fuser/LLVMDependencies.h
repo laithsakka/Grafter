@@ -40,9 +40,9 @@ struct StrictAccessInfo {
   bool IsGlobal;
 };
 
-extern bool hasFuseAnnotation(clang::FunctionDecl *funDecl);
-extern bool hasTreeAnnotation(clang::CXXRecordDecl *recordDecl);
-extern bool hasChildAnnotation(clang::FieldDecl *fieldDecl);
-extern bool hasStrictAccessAnnotation(clang::Decl *decl);
-extern std::vector<StrictAccessInfo> getStrictAccessInfo(clang::Decl *decl);
-#endif 
+extern bool hasFuseAnnotation(clang::FunctionDecl *FunDecl);
+extern bool hasTreeAnnotation(const clang::CXXRecordDecl *RecordDecl);
+extern bool hasChildAnnotation(clang::FieldDecl *FieldDecl);
+extern bool hasStrictAccessAnnotation(clang::Decl *Decl);
+extern std::vector<StrictAccessInfo> getStrictAccessInfo(clang::Decl *Decl);
+#endif

@@ -21,7 +21,7 @@ bool hasFuseAnnotation(clang::FunctionDecl *Declaration) {
               .compare("tf_fuse") == 0);
 }
 
-bool hasTreeAnnotation(clang::CXXRecordDecl *Declaration) {
+bool hasTreeAnnotation(const clang::CXXRecordDecl *Declaration) {
 
   return Declaration->hasAttr<clang::AnnotateAttr>() &&
          Declaration->getAttr<clang::AnnotateAttr>()

@@ -39,16 +39,16 @@ AccessPath::AccessPath(clang::Expr *SourceExpression,
   if (Function == nullptr)
     this->IsDummy = true;
 
-
   switch (SourceExpression->getStmtClass()) {
-  case Stmt::StmtClass::MemberExprClass: {
+  case Stmt::StmtClass::MemberExprClass:
     parseAccessPath(dyn_cast<clang::MemberExpr>(SourceExpression));
     break;
-  }
-  case Stmt::StmtClass::DeclRefExprClass: {
+  case Stmt::StmtClass::DeclRefExprClass:
     parseAccessPath(dyn_cast<clang::DeclRefExpr>(SourceExpression));
     break;
-  }
+  case Stmt::StmtClass::CXXStaticCastExprClass:
+    parseAccessPath(dyn_cast<clang::CXXStaticCastExpr>(SourceExpression));
+    break;
   case Stmt::StmtClass::CXXMemberCallExprClass: {
     auto *CallExpression = dyn_cast<clang::CXXMemberCallExpr>(SourceExpression);
     assert(hasStrictAccessAnnotation(CallExpression->getCalleeDecl()) &&
@@ -160,8 +160,6 @@ AccessPath::AccessPath(clang::FunctionDecl *FunctionDeclaration,
   IsStrictAccessCall = true;
 }
 
-// TODO: We are not suppoed to check the legality anywhere here
-
 bool AccessPath::hasValuePart() const { return ValueStartIndex != -1; }
 
 bool AccessPath::isLegal() const { return IsLegal; }
@@ -260,42 +258,25 @@ void AccessPath::appendSymbol(clang::ValueDecl *NodeDecleration) {
 
 bool AccessPath::parseAccessPath(clang::MemberExpr *Expression) {
   if (Expression->getMemberDecl()->isFunctionOrFunctionTemplate()) {
-    IsLegal = false;
     Logger::getStaticLogger().logError(
         "Function calls not allowed as part of access path");
-    return false;
+    return IsLegal = false;
   }
 
   // change to post order for better performance
   appendSymbol(Expression->getMemberDecl());
-
-  int I = 0;
   auto *NextExpression = (*Expression->child_begin())->IgnoreImplicit();
-
   assert(std::next(Expression->child_begin()) == Expression->child_end());
+  return handleNextExpression(NextExpression);
+}
 
-  if (NextExpression->getStmtClass() == Stmt::StmtClass::MemberExprClass) {
-
-    parseAccessPath(dyn_cast<clang::MemberExpr>(NextExpression));
-
-  } else if (NextExpression->getStmtClass() ==
-             Stmt::StmtClass::DeclRefExprClass) {
-    parseAccessPath(dyn_cast<clang::DeclRefExpr>(NextExpression));
-
-  } else {
-    Logger::getStaticLogger().logError(
-        "AccessPath::parseAccessPath (MemberExpr) unsupported type inside "
-        "access "
-        "path:" +
-        string(NextExpression->getStmtClassName()));
-    IsLegal = false;
-    return false;
-  }
-
-  return true;
+bool AccessPath::parseAccessPath(clang::CXXStaticCastExpr *Expression) {
+  assert(Expression);
+  return handleNextExpression(Expression->getSubExpr()->IgnoreImplicit());
 }
 
 bool AccessPath::parseAccessPath(clang::DeclRefExpr *Expression) {
+  assert(Expression);
   appendSymbol(Expression->getDecl());
   assert(Expression->child_begin() == Expression->child_end());
   return true;
@@ -335,4 +316,31 @@ bool AccessPathCompare::operator()(const AccessPath *LHS,
     return false;
   else
     return LHS < RHS;
+}
+
+bool AccessPath::handleNextExpression(clang::Stmt *NextExpression) {
+  switch (NextExpression->getStmtClass()) {
+  case Stmt::StmtClass::MemberExprClass:
+    return parseAccessPath(dyn_cast<clang::MemberExpr>(NextExpression));
+
+  case Stmt::StmtClass::DeclRefExprClass:
+    return parseAccessPath(dyn_cast<clang::DeclRefExpr>(NextExpression));
+
+  case Stmt::StmtClass::CXXStaticCastExprClass:
+    return parseAccessPath(dyn_cast<clang::CXXStaticCastExpr>(NextExpression));
+
+  case Stmt::StmtClass::ParenExprClass:
+    return handleNextExpression(
+        (dyn_cast<clang::ParenExpr>(NextExpression))->getSubExpr());
+
+  default:
+    Logger::getStaticLogger().logError(
+        "AccessPath::handleNextExpression unsupported type "
+        ">>" +
+        string(NextExpression->getStmtClassName()));
+    NextExpression->dump();
+    IsLegal = false;
+    return false;
+  }
+  return true;
 }

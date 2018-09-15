@@ -31,7 +31,7 @@ bool FunctionsFinder::VisitFunctionDecl(clang::FunctionDecl *FuncDeclaration) {
   } else {
     Logger::getStaticLogger().logInfo("function " +
                                       FuncDeclaration->getNameAsString() +
-                                      "is valid fuse methods");
+                                      " is valid fuse methods");
   }
 
   FunctionsInformation[FuncDeclaration] = FuncInfo;
