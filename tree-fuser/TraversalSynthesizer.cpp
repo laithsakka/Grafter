@@ -660,8 +660,6 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
     break;
   }
   default:
-    outs() << "warning ! printing a type that is not explicitly handled";
-    Stmt->dump();
     Output += stmtTostr(Stmt, SM);
   }
   return;

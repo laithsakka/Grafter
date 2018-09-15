@@ -12,9 +12,9 @@
 #include "FunctionAnalyzer.h"
 #include "FunctionsFinder.h"
 #include "FuseTransformation.h"
-#include "RecordAnalyzer.h"
 #include "LLVMDependencies.h"
 #include "Logger.h"
+#include "RecordAnalyzer.h"
 
 #include <assert.h>
 #include <iostream>
@@ -29,12 +29,13 @@ static cl::extrahelp MoreHelp("");
 int main(int argc, const char **argv) {
   clang::tooling::CommonOptionsParser OptionsParser(argc, argv, OptionCategory);
   clang::tooling::ClangTool ClangTool(OptionsParser.getCompilations(),
-                                 OptionsParser.getSourcePathList());
+                                      OptionsParser.getSourcePathList());
 
   std::vector<std::unique_ptr<ASTUnit>> ASTList;
   ClangTool.buildASTs(ASTList);
 
-  if (ClangTool.run(newFrontendActionFactory<clang::SyntaxOnlyAction>().get())) {
+  if (ClangTool.run(
+          newFrontendActionFactory<clang::SyntaxOnlyAction>().get())) {
     errs() << "ERROR: input source files have a compilation error";
     return 0;
   }
@@ -42,12 +43,13 @@ int main(int argc, const char **argv) {
   RecordsAnalyzer RecordAnalyserInstance;
   FunctionsFinder FunctionsInfo;
 
-  outs() << ("INFO: anlyzing records");
+  outs() << ("INFO: anlyzing records\n");
 
   for (auto &ASTUnit : ASTList)
-    RecordAnalyserInstance.analyzeRecordsDeclarations(ASTUnit.get()->getASTContext());
+    RecordAnalyserInstance.analyzeRecordsDeclarations(
+        ASTUnit.get()->getASTContext());
 
-  outs() << ("INFO: analyzing functions");
+  outs() << ("INFO: analyzing functions\n");
 
   for (auto &ASTUnit : ASTList)
     FunctionsInfo.findFunctions(ASTUnit.get()->getASTContext());
@@ -63,14 +65,14 @@ int main(int argc, const char **argv) {
     CandidatesFinder.findCandidates();
 
     // Perform fusion
-    for (auto &Entry : CandidatesFinder.getFusionCandidates()){
+    for (auto &Entry : CandidatesFinder.getFusionCandidates()) {
       auto *EnclosingFunctionDecl = Entry.first;
-      for(auto &Candidate :Entry.second )
+      for (auto &Candidate : Entry.second)
         Transformer.performFusion(EnclosingFunctionDecl, Candidate);
     }
+
     // Commit source file changes
     Transformer.overwriteChangedFiles();
   }
-
   return 1;
 }
