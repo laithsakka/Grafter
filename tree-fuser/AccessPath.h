@@ -22,7 +22,6 @@ struct AccessPathCompare {
   bool operator()(const AccessPath *LHS, const AccessPath *RHS) const;
 };
 
-typedef std::set<AccessPath *, AccessPathCompare>::iterator AccessPathSetIt;
 typedef std::set<AccessPath *, AccessPathCompare> AccessPathSet;
 
 class AccessPath {
@@ -75,7 +74,7 @@ public:
 
   /// Print the content of the access path
   void dump() {
-    outs() << "IsLegal:" << IsLegal << ". Content:" << AccessPathString << "\n";
+    outs() <<"IsLocal:" << isLocal()<<". Value Start:"<<getValueStartIndex()<< " .IsLegal:" << IsLegal << ". Content:" << AccessPathString << "\n";
   }
 
   bool hasValuePart() const;
@@ -90,7 +89,7 @@ public:
 
   bool isGlobal() const;
 
-  bool onlyUses(clang::VarDecl *RootDecl,
+  bool onlyUses(const clang::VarDecl *RootDecl,
                 const set<clang::FieldDecl *> &ChildrenSymbols);
 
   int getValueStartIndex() const;
@@ -123,17 +122,25 @@ class AccessPathContainer {
 private:
   AccessPathSet ReadSet;
   AccessPathSet WriteSet;
+  AccessPathSet DeleteSet;
 
 public:
   bool insert(AccessPath *AccessPath, bool IsWrite);
+
+  bool insertDeleteAccessPath(AccessPath *AccessPath);
+
   void freeAccessPaths();
 
-  const std::set<AccessPath *, AccessPathCompare> &getReadSet() const {
+  const AccessPathSet &getReadSet() const {
     return ReadSet;
   }
 
-  const std::set<AccessPath *, AccessPathCompare> &getWriteSet() const {
+  const AccessPathSet &getWriteSet() const {
     return WriteSet;
+  }
+
+  const AccessPathSet &getDeleteSet() const {
+    return DeleteSet;
   }
 };
 

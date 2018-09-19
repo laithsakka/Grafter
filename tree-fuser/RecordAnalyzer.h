@@ -42,7 +42,7 @@ public:
   bool isTreeStructure() const { return IsTreeStructure; }
 
   /// Return the recursive fields of the tree
-  const std::set<clang::FieldDecl *> &getChildAccessDecls() const {
+  const std::set<clang::FieldDecl *> &getRecursiveFields() const {
     return RecursiveDeclarations;
   }
 
@@ -65,7 +65,7 @@ public:
 
   /// Return recursive field declarations
   static const std::set<clang::FieldDecl *> &
-  getChildAccessDecls(const clang::RecordDecl *RecordDecl);
+  getRecursiveFields(const clang::RecordDecl *RecordDecl);
 
   static const RecordInfo &getRecordInfo(const clang::RecordDecl *RecordDecl);
 

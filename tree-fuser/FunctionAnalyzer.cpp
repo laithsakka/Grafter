@@ -32,6 +32,10 @@ void FunctionAnalyzer::dump() {
     outs() << "writes: " << Stmt->getAccessPaths().getWriteSet().size() << "\n";
     for (auto *AccessPath : Stmt->getAccessPaths().getWriteSet())
       AccessPath->dump();
+
+    outs() << "deletes: " << Stmt->getAccessPaths().getDeleteSet().size() << "\n";
+    for (auto *AccessPath : Stmt->getAccessPaths().getDeleteSet())
+      AccessPath->dump();
   }
 }
 
@@ -80,26 +84,17 @@ bool FunctionAnalyzer::collectAccessPath_handleStmt(clang::Stmt *Stmt) {
   Stmt = Stmt->IgnoreImplicit();
   switch (Stmt->getStmtClass()) {
   case clang::Stmt::CompoundStmtClass:
-    if (!collectAccessPath_VisitCompoundStmt(
-            dyn_cast<clang::CompoundStmt>(Stmt)))
-      return false;
+    return collectAccessPath_VisitCompoundStmt(
+        dyn_cast<clang::CompoundStmt>(Stmt));
 
-    break;
+  case clang::Stmt::CallExprClass:
+    return collectAccessPath_VisitCallExpr(dyn_cast<clang::CallExpr>(Stmt));
 
-  case clang::Stmt::StmtClass::CallExprClass:
-    if (!collectAccessPath_VisitCallExpr(dyn_cast<clang::CallExpr>(Stmt)))
-      return false;
+  case clang::Stmt::BinaryOperatorClass:
+    return collectAccessPath_VisitBinaryOperator(
+        dyn_cast<clang::BinaryOperator>(Stmt));
 
-    break;
-
-  case clang::Stmt::StmtClass::BinaryOperatorClass:
-    if (!collectAccessPath_VisitBinaryOperator(
-            dyn_cast<clang::BinaryOperator>(Stmt)))
-      return false;
-
-    break;
-
-  case clang::Stmt::StmtClass::IfStmtClass:
+  case clang::Stmt::IfStmtClass:
     NestedIfDepth++;
     if (!collectAccessPath_VisitIfStmt(dyn_cast<clang::IfStmt>(Stmt))) {
       NestedIfDepth--;
@@ -107,24 +102,25 @@ bool FunctionAnalyzer::collectAccessPath_handleStmt(clang::Stmt *Stmt) {
     }
     NestedIfDepth--;
     break;
-  case clang::Stmt::StmtClass::ReturnStmtClass:
+
+  case clang::Stmt::ReturnStmtClass:
     CurrStatementInfo->setHasReturn(true);
     break;
 
   case clang::Stmt::Stmt::NullStmtClass:
     break;
 
-  case clang::Stmt::StmtClass::DeclStmtClass:
-    if (!collectAccessPath_VisitDeclsStmt(dyn_cast<clang::DeclStmt>(Stmt)))
-      return false;
-    break;
+  case clang::Stmt::DeclStmtClass:
+    return collectAccessPath_VisitDeclsStmt(dyn_cast<clang::DeclStmt>(Stmt));
 
-  case clang::Stmt::StmtClass::CXXMemberCallExprClass:
-    if (!collectAccessPath_VisitCXXMemberCallExpr(
-            dyn_cast<clang::CXXMemberCallExpr>(Stmt)))
-      return false;
+  case clang::Stmt::CXXMemberCallExprClass:
+    return collectAccessPath_VisitCXXMemberCallExpr(
+        dyn_cast<clang::CXXMemberCallExpr>(Stmt));
 
-    break;
+  case clang::Stmt::CXXDeleteExprClass:
+    return collectAccessPath_VisitCXXDeleteExpr(
+        dyn_cast<clang::CXXDeleteExpr>(Stmt));
+
   default:
     Logger::getStaticLogger().logError(
         "in FunctionAnalyzer::handleStmt() unsupported statment");
@@ -138,7 +134,7 @@ bool FunctionAnalyzer::collectAccessPath_handleStmt(clang::Stmt *Stmt) {
 
 bool FunctionAnalyzer::collectAccessPath_VisitCXXMemberCallExpr(
     clang::CXXMemberCallExpr *Expr) {
-  assert(Expr->getStmtClass() == Stmt::StmtClass::CXXMemberCallExprClass);
+  assert(Expr->getStmtClass() == Stmt::CXXMemberCallExprClass);
   auto *CxxMemberCall = dyn_cast<clang::CXXMemberCallExpr>(Expr);
 
   if (!hasStrictAccessAnnotation(CxxMemberCall->getCalleeDecl())) {
@@ -164,8 +160,8 @@ bool FunctionAnalyzer::collectAccessPath_VisitCXXMemberCallExpr(
   for (auto *Argument : Expr->arguments()) {
     Argument = Argument->IgnoreImplicit();
 
-    if (Argument->getStmtClass() == clang::Stmt::StmtClass::MemberExprClass ||
-        Argument->getStmtClass() == clang::Stmt::StmtClass::DeclRefExprClass) {
+    if (Argument->getStmtClass() == clang::Stmt::MemberExprClass ||
+        Argument->getStmtClass() == clang::Stmt::DeclRefExprClass) {
       AccessPath *NewAccessPath = new AccessPath(Argument, this);
       if (!NewAccessPath->isLegal()) {
         delete NewAccessPath;
@@ -195,32 +191,32 @@ bool FunctionAnalyzer::collectAccessPath_handleSubExpr(clang::Expr *Expr) {
       return false;
     break;
 
-  case clang::Stmt::StmtClass::CXXConstructExprClass: {
+  case clang::Stmt::CXXConstructExprClass: {
     auto *Constructor = dyn_cast<CXXConstructExpr>(Expr);
 
     // Return wether if its the default empty constructor
     return Constructor->getConstructor()->isTrivial();
   }
 
-  case clang::Stmt::StmtClass::ParenExprClass: {
+  case clang::Stmt::ParenExprClass: {
     auto *ParenthExpr = dyn_cast<clang::ParenExpr>(Expr);
     return collectAccessPath_VisitParenExpr(ParenthExpr);
   }
 
-  case clang::Stmt::StmtClass::CallExprClass:
+  case clang::Stmt::CallExprClass:
     return collectAccessPath_VisitCallExpr(dyn_cast<clang::CallExpr>(Expr));
 
-  case clang::Stmt::StmtClass::CXXMemberCallExprClass:
+  case clang::Stmt::CXXMemberCallExprClass:
     return collectAccessPath_VisitCXXMemberCallExpr(
         dyn_cast<clang::CXXMemberCallExpr>(Expr));
 
-  case clang::Stmt::StmtClass::GNUNullExprClass:
-  case clang::Stmt::StmtClass::IntegerLiteralClass:
-  case clang::Stmt::StmtClass::FloatingLiteralClass:
-  case clang::Stmt::StmtClass::CXXBoolLiteralExprClass:
-  case clang::Stmt::StmtClass::NullStmtClass:
+  case clang::Stmt::GNUNullExprClass:
+  case clang::Stmt::IntegerLiteralClass:
+  case clang::Stmt::FloatingLiteralClass:
+  case clang::Stmt::CXXBoolLiteralExprClass:
+  case clang::Stmt::NullStmtClass:
     return true;
-  case clang::Stmt::StmtClass::CXXStaticCastExprClass:
+  case clang::Stmt::CXXStaticCastExprClass:
     return collectAccessPath_VisitStaticCastExpr(
         dyn_cast<clang::CXXStaticCastExpr>(Expr));
 
@@ -285,7 +281,7 @@ bool FunctionAnalyzer::checkFuseSema() {
   // Must be a recursive function
   for (auto *Stmt : FuncDeclNode->getBody()->children()) {
 
-    if (Stmt->getStmtClass() != clang::Stmt::StmtClass::CallExprClass)
+    if (Stmt->getStmtClass() != clang::Stmt::CallExprClass)
       continue;
 
     auto *Call = dyn_cast<clang::CallExpr>(Stmt);
@@ -310,7 +306,7 @@ bool FunctionAnalyzer::checkFuseSema() {
 
       if (!CalledChildAccessPath.onlyUses(
               TraversedNodeDecl,
-              RecordsAnalyzer::getChildAccessDecls(TraversedTreeTypeDecl))) {
+              RecordsAnalyzer::getRecursiveFields(TraversedTreeTypeDecl))) {
         Logger::getStaticLogger().logError(
             "fuse method recursive call is a not traversing a recognized "
             "child ");
@@ -331,33 +327,25 @@ bool FunctionAnalyzer::checkFuseSema() {
     return false;
   }
   assert(FuncDeclNode->getBody()->IgnoreImplicit()->getStmtClass() ==
-         clang::Stmt::StmtClass::CompoundStmtClass);
+         clang::Stmt::CompoundStmtClass);
 
   return collectAccessPath_VisitCompoundStmt(
       dyn_cast<clang::CompoundStmt>(FuncDeclNode->getBody()));
 }
 
 void FunctionAnalyzer::addAccessPath(AccessPath *AccessPath, bool IsWrite) {
+  CurrStatementInfo->getAccessPaths().insert(AccessPath, IsWrite);
+}
 
-  bool Result = CurrStatementInfo->getAccessPaths().insert(AccessPath, IsWrite);
-
-  //    if(Result)
-  //    Logger::getStaticLogger().logDebug("a new access path found is added ["+
-  //                                       this->FuncDeclNode->getNameAsString()+
-  //                                       ( (isWrite==true)? ",write,":",read,"
-  //                                       )+
-  //                                        to_string(this->getStatements().size()+1)+
-  //                                       (accessPath->isOnTree()?",ontree":",offtree")+
-  //                                       "]:"+
-  //                                        accessPath->getAsStr());
-  //
+void FunctionAnalyzer::addDeleteAccessPath(AccessPath *AccessPath) {
+  CurrStatementInfo->getAccessPaths().insertDeleteAccessPath(AccessPath);
 }
 
 bool FunctionAnalyzer::collectAccessPath_VisitStaticCastExpr(
     clang::CXXStaticCastExpr *Expr) {
   auto *SubExpr = Expr->getSubExpr()->IgnoreImplicit();
 
-  if (SubExpr->getStmtClass() == clang::Stmt::StmtClass::MemberExprClass) {
+  if (SubExpr->getStmtClass() == clang::Stmt::MemberExprClass) {
     AccessPath *NewAccessPath = new AccessPath(SubExpr, this);
     if (!NewAccessPath->isLegal()) {
       delete NewAccessPath;
@@ -377,9 +365,9 @@ bool FunctionAnalyzer::collectAccessPath_VisitBinaryOperator(
 
   // RHS
   if (BinaryExpr->getRHS()->IgnoreImplicit()->getStmtClass() ==
-          clang::Stmt::StmtClass::MemberExprClass ||
+          clang::Stmt::MemberExprClass ||
       BinaryExpr->getRHS()->IgnoreImplicit()->getStmtClass() ==
-          clang::Stmt::StmtClass::DeclRefExprClass) {
+          clang::Stmt::DeclRefExprClass) {
 
     AccessPath *NewAccessPath = new AccessPath(BinaryExpr->getRHS(), this);
     if (!NewAccessPath->isLegal()) {
@@ -400,9 +388,9 @@ bool FunctionAnalyzer::collectAccessPath_VisitBinaryOperator(
 
   // LHS
   if (BinaryExpr->getLHS()->IgnoreImplicit()->getStmtClass() ==
-          clang::Stmt::StmtClass::MemberExprClass ||
+          clang::Stmt::MemberExprClass ||
       BinaryExpr->getLHS()->IgnoreImplicit()->getStmtClass() ==
-          clang::Stmt::StmtClass::DeclRefExprClass) {
+          clang::Stmt::DeclRefExprClass) {
 
     AccessPath *NewAccessPath = new AccessPath(BinaryExpr->getLHS(), this);
     if (!NewAccessPath->isLegal()) {
@@ -483,8 +471,8 @@ bool FunctionAnalyzer::collectAccessPath_VisitCallExpr(clang::CallExpr *Expr) {
 
   for (auto *Argument : Expr->arguments()) {
     Argument = Argument->IgnoreImplicit();
-    if (Argument->getStmtClass() == clang::Stmt::StmtClass::MemberExprClass ||
-        Argument->getStmtClass() == clang::Stmt::StmtClass::DeclRefExprClass) {
+    if (Argument->getStmtClass() == clang::Stmt::MemberExprClass ||
+        Argument->getStmtClass() == clang::Stmt::DeclRefExprClass) {
 
       AccessPath *NewAccessPath = new AccessPath(Argument, this);
 
@@ -518,7 +506,7 @@ bool FunctionAnalyzer::collectAccessPath_VisitCompoundStmt(
     if (NestedIfDepth == 0) {
 
       bool IsRecursiveCall =
-          ChildStmt->getStmtClass() == clang::Stmt::StmtClass::CallExprClass &&
+          ChildStmt->getStmtClass() == clang::Stmt::CallExprClass &&
           dyn_cast<clang::CallExpr>(ChildStmt)->getCalleeDecl() == FuncDeclNode;
 
       CurrStatementInfo = new StatementInfo(ChildStmt, this, IsRecursiveCall,
@@ -546,8 +534,8 @@ bool FunctionAnalyzer::collectAccessPath_VisitIfStmt(clang::IfStmt *Stmt) {
   if (Stmt->getCond()) {
     auto *Cond = Stmt->getCond()->IgnoreImplicit();
 
-    if (Cond->getStmtClass() == clang::Stmt::StmtClass::MemberExprClass ||
-        Cond->getStmtClass() == clang::Stmt::StmtClass::DeclRefExprClass) {
+    if (Cond->getStmtClass() == clang::Stmt::MemberExprClass ||
+        Cond->getStmtClass() == clang::Stmt::DeclRefExprClass) {
 
       AccessPath *NewAccessPath = new AccessPath(Cond, this);
       if (!NewAccessPath->isLegal()) {
@@ -595,7 +583,7 @@ bool FunctionAnalyzer::collectAccessPath_VisitIfStmt(clang::IfStmt *Stmt) {
 bool FunctionAnalyzer::collectAccessPath_VisitParenExpr(
     clang::ParenExpr *Expr) {
 
-  if (Expr->getSubExpr()->getStmtClass() == Stmt::StmtClass::MemberExprClass) {
+  if (Expr->getSubExpr()->getStmtClass() == Stmt::MemberExprClass) {
     AccessPath *NewAccessPath = new AccessPath(Expr->getSubExpr(), this);
 
     if (!NewAccessPath->isLegal()) {
@@ -643,8 +631,8 @@ bool FunctionAnalyzer::collectAccessPath_VisitDeclsStmt(clang::DeclStmt *Stmt) {
 
     if (ExprInit) {
       ExprInit = VarDecl->getInit()->IgnoreImpCasts();
-      if (ExprInit->getStmtClass() == Stmt::StmtClass::MemberExprClass ||
-          ExprInit->getStmtClass() == Stmt::StmtClass::DeclRefExprClass) {
+      if (ExprInit->getStmtClass() == Stmt::MemberExprClass ||
+          ExprInit->getStmtClass() == Stmt::DeclRefExprClass) {
 
         AccessPath *NewAccessPath = new AccessPath(ExprInit, this);
 
@@ -667,6 +655,59 @@ bool FunctionAnalyzer::collectAccessPath_VisitDeclsStmt(clang::DeclStmt *Stmt) {
   return true;
 }
 
+bool FunctionAnalyzer::collectAccessPath_VisitCXXDeleteExpr(
+    clang::CXXDeleteExpr *Expr) {
+
+  Expr->dump();
+  auto *DeleteDecl = Expr->getOperatorDelete();
+  DeleteDecl->dump();
+
+
+  if (DeleteDecl->hasBody() || Expr->isArrayForm() || Expr->isGlobalDelete()) {
+    Logger::getStaticLogger().logError(
+        "FunctionAnalyzer::collectAccessPath_VisitCXXDeleteExpr : "
+        "not supported delete");
+    return false;
+  }
+
+  // Make sure there are no destructors
+  std::stack<const clang::CXXRecordDecl *> Stack;
+  Stack.push(Expr->getDestroyedType()->getAsCXXRecordDecl ());
+
+  while (!Stack.empty()) {
+    const clang::CXXRecordDecl *TopOfStack = Stack.top();
+    Stack.pop();
+
+    if(TopOfStack->hasUserDeclaredDestructor ()){
+      Logger::getStaticLogger().logError(
+          "FunctionAnalyzer::collectAccessPath_VisitCXXDeleteExpr : "
+          "user declared destructors not unsupported");
+      return false;
+    }
+
+    for (auto &BaseClass : TopOfStack->bases())
+      Stack.push(BaseClass.getType()->getAsCXXRecordDecl());
+  }
+
+  AccessPath *NewAccessPath = new AccessPath(Expr->getArgument(), this);
+  NewAccessPath->dump();
+  if (!NewAccessPath->isLegal() || !NewAccessPath->isOnTree() ||
+      !NewAccessPath->getValuePathSize() == 0 ||
+      !NewAccessPath->onlyUses(
+          getTraversedNodeDecl(),
+          RecordsAnalyzer::getRecordInfo(getTraversedTreeTypeDecl())
+              .getRecursiveFields())) {
+    Logger::getStaticLogger().logError(
+        "FunctionAnalyzer::collectAccessPath_VisitCXXDeleteExpr : "
+        "not supported delete argument");
+        delete NewAccessPath;
+    return false;
+  }
+
+  addDeleteAccessPath(NewAccessPath);
+
+  return true;
+}
 FunctionAnalyzer::~FunctionAnalyzer() {
   for (auto *StmtInfo : Statements) {
     delete StmtInfo;

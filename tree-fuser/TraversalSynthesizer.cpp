@@ -507,7 +507,7 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
       print_handleStmt(ChildStmt, SM);
     break;
   }
-  case Stmt::StmtClass::CallExprClass: {
+  case Stmt::CallExprClass: {
     auto *CallExpr = dyn_cast<clang::CallExpr>(Stmt);
     Output += CallExpr->getDirectCallee()->getNameAsString() + "(";
 
@@ -523,7 +523,7 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
       Output += ";";
     break;
   }
-  case Stmt::StmtClass::BinaryOperatorClass: {
+  case Stmt::BinaryOperatorClass: {
     // print the lhs ,
     NestedExpressionDepth++;
     auto *BinaryOperator = dyn_cast<clang::BinaryOperator>(Stmt);
@@ -543,7 +543,7 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
     NestedExpressionDepth--;
     break;
   }
-  case Stmt::StmtClass::DeclRefExprClass: {
+  case Stmt::DeclRefExprClass: {
     auto *DeclRefExpr = dyn_cast<clang::DeclRefExpr>(Stmt);
     if (DeclRefExpr->getDecl() == this->RootNodeDecl)
       Output += "_r";
@@ -554,12 +554,12 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
       Output += stmtTostr(Stmt, SM);
     break;
   }
-  case Stmt::StmtClass::ImplicitCastExprClass: {
+  case Stmt::ImplicitCastExprClass: {
     Output += "|>";
     print_handleStmt(dyn_cast<clang::ImplicitCastExpr>(Stmt)->getSubExpr(), SM);
     break;
   }
-  case Stmt::StmtClass::MemberExprClass: {
+  case Stmt::MemberExprClass: {
     auto *MemberExpression = dyn_cast<clang::MemberExpr>(Stmt);
     print_handleStmt(*MemberExpression->child_begin(), SM);
 
@@ -570,7 +570,7 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
 
     break;
   }
-  case Stmt::StmtClass::IfStmtClass: {
+  case Stmt::IfStmtClass: {
     auto &IfStmt = *dyn_cast<clang::IfStmt>(Stmt);
     // check the condition part first
     if (IfStmt.getCond() != nullptr) {
@@ -601,7 +601,7 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
     }
     break;
   }
-  case Stmt::StmtClass::ReturnStmtClass:
+  case Stmt::ReturnStmtClass:
     Output += "\t truncate_flags&=" +
               toBinaryString(~(unsigned int)(1 << (FunctionId - 1))) +
               "; goto " + NextLabel + " ;\n";
@@ -610,7 +610,7 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
   case Stmt::Stmt::NullStmtClass:
     Output += "\t\t;\n";
     break;
-  case Stmt::StmtClass::DeclStmtClass: {
+  case Stmt::DeclStmtClass: {
     auto *DeclStmt = dyn_cast<clang::DeclStmt>(Stmt);
     for (auto *Decl : DeclStmt->decls()) {
       auto *VarDecl = dyn_cast<clang::VarDecl>(Decl);
@@ -627,13 +627,13 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
     }
     break;
   }
-  case Stmt::StmtClass::ParenExprClass: {
+  case Stmt::ParenExprClass: {
     auto *ParenExpr = dyn_cast<clang::ParenExpr>(Stmt);
     Output += "(";
     print_handleStmt(ParenExpr->getSubExpr(), SM);
     Output += ")";
   } break;
-  case Stmt::StmtClass::CXXMemberCallExprClass: {
+  case Stmt::CXXMemberCallExprClass: {
     auto *CallExpr = dyn_cast<clang::CXXMemberCallExpr>(Stmt);
     print_handleStmt(*(CallExpr->child_begin())->child_begin(), SM);
     Output += "->" +
@@ -651,12 +651,19 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
       Output += ";";
     break;
   }
-  case Stmt::StmtClass::CXXStaticCastExprClass: {
+  case Stmt::CXXStaticCastExprClass: {
     auto *CastStmt = dyn_cast<CXXStaticCastExpr>(Stmt);
     Output +=
         "static_cast<" + CastStmt->getTypeAsWritten().getAsString() + ">(";
     print_handleStmt(CastStmt->getSubExpr(), SM);
     Output += ")";
+    break;
+  }
+  case Stmt::CXXDeleteExprClass:{
+    auto * DeleteArgument = dyn_cast<CXXDeleteExpr>(Stmt)->getArgument();
+    Output+= "delete ";
+    print_handleStmt(DeleteArgument, SM);
+    Output+= ";";
     break;
   }
   default:

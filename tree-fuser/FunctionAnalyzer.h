@@ -52,6 +52,9 @@ private:
   /// Add an access path to the currently traversed statement information
   void addAccessPath(AccessPath *AccessPath, bool IsRead);
 
+  /// Add a delete access path to the traversed statment
+  void addDeleteAccessPath(AccessPath *AccessPath);
+
   /// Perform checks that confirms that the body of the function with treefuser
   /// semantics
   bool checkFuseSema();
@@ -78,6 +81,8 @@ private:
   bool collectAccessPath_VisitBinaryOperator(clang::BinaryOperator *Stmt);
 
   bool collectAccessPath_VisitStaticCastExpr(clang::CXXStaticCastExpr *Expr);
+
+  bool collectAccessPath_VisitCXXDeleteExpr(clang::CXXDeleteExpr *Expr);
 
 public:
   FunctionAnalyzer(clang::FunctionDecl *FuncDeclaration);

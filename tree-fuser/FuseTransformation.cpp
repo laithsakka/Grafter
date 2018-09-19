@@ -26,7 +26,7 @@ bool FusionCandidatesFinder::VisitCompoundStmt(
 
   for (auto *InnerStmt : CompoundStmt->body()) {
 
-    if (InnerStmt->getStmtClass() != Stmt::StmtClass::CallExprClass) {
+    if (InnerStmt->getStmtClass() != Stmt::CallExprClass) {
       if (Candidate.size() > 1)
         FusionCandidates[CurrentFuncDecl].push_back(Candidate);
 

@@ -22,11 +22,18 @@ bool AccessPathContainer::insert(AccessPath *AccessPath, bool IsWrite) {
     return ReadSet.insert(AccessPath).second;
 }
 
+bool AccessPathContainer::insertDeleteAccessPath(AccessPath *AccessPath) {
+  return DeleteSet.insert(AccessPath).second;
+}
+
 void AccessPathContainer::freeAccessPaths() {
   for (auto *Entry : ReadSet)
     delete Entry;
 
   for (auto *Entry : WriteSet)
+    delete Entry;
+
+  for (auto *Entry : DeleteSet)
     delete Entry;
 }
 
@@ -40,16 +47,16 @@ AccessPath::AccessPath(clang::Expr *SourceExpression,
     this->IsDummy = true;
 
   switch (SourceExpression->getStmtClass()) {
-  case Stmt::StmtClass::MemberExprClass:
+  case Stmt::MemberExprClass:
     parseAccessPath(dyn_cast<clang::MemberExpr>(SourceExpression));
     break;
-  case Stmt::StmtClass::DeclRefExprClass:
+  case Stmt::DeclRefExprClass:
     parseAccessPath(dyn_cast<clang::DeclRefExpr>(SourceExpression));
     break;
-  case Stmt::StmtClass::CXXStaticCastExprClass:
+  case Stmt::CXXStaticCastExprClass:
     parseAccessPath(dyn_cast<clang::CXXStaticCastExpr>(SourceExpression));
     break;
-  case Stmt::StmtClass::CXXMemberCallExprClass: {
+  case Stmt::CXXMemberCallExprClass: {
     auto *CallExpression = dyn_cast<clang::CXXMemberCallExpr>(SourceExpression);
     assert(hasStrictAccessAnnotation(CallExpression->getCalleeDecl()) &&
            "Member function call not allowed with out annotation");
@@ -71,11 +78,11 @@ AccessPath::AccessPath(clang::Expr *SourceExpression,
            (*CallExpression->child_begin())->child_end());
 
     if (FirstParameter.IgnoreImplicit()->getStmtClass() ==
-        Stmt::StmtClass::MemberExprClass) {
+        Stmt::MemberExprClass) {
       parseAccessPath(
           dyn_cast<clang::MemberExpr>(FirstParameter.IgnoreImplicit()));
     } else if (FirstParameter.IgnoreImplicit()->getStmtClass() ==
-               Stmt::StmtClass::DeclRefExprClass) {
+               Stmt::DeclRefExprClass) {
       // Is this possible
       parseAccessPath(
           dyn_cast<clang::DeclRefExpr>(FirstParameter.IgnoreImplicit()));
@@ -181,7 +188,7 @@ bool AccessPath::isGlobal() const {
   return IsLegal && isOffTree() && !isLocal();
 }
 
-bool AccessPath::onlyUses(clang::VarDecl *RootDecl,
+bool AccessPath::onlyUses(const clang::VarDecl *RootDecl,
                           const set<clang::FieldDecl *> &ChildrenSymbols) {
 
   if ((SplittedAccessPath[0].second != RootDecl))
@@ -320,16 +327,16 @@ bool AccessPathCompare::operator()(const AccessPath *LHS,
 
 bool AccessPath::handleNextExpression(clang::Stmt *NextExpression) {
   switch (NextExpression->getStmtClass()) {
-  case Stmt::StmtClass::MemberExprClass:
+  case Stmt::MemberExprClass:
     return parseAccessPath(dyn_cast<clang::MemberExpr>(NextExpression));
 
-  case Stmt::StmtClass::DeclRefExprClass:
+  case Stmt::DeclRefExprClass:
     return parseAccessPath(dyn_cast<clang::DeclRefExpr>(NextExpression));
 
-  case Stmt::StmtClass::CXXStaticCastExprClass:
+  case Stmt::CXXStaticCastExprClass:
     return parseAccessPath(dyn_cast<clang::CXXStaticCastExpr>(NextExpression));
 
-  case Stmt::StmtClass::ParenExprClass:
+  case Stmt::ParenExprClass:
     return handleNextExpression(
         (dyn_cast<clang::ParenExpr>(NextExpression))->getSubExpr());
 

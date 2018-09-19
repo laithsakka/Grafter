@@ -16,12 +16,12 @@
 RecordsStore RecordsAnalyzer::RecordsInfoGlobalStore = RecordsStore();
 
 const set<clang::FieldDecl *> &
-RecordsAnalyzer::getChildAccessDecls(const clang::RecordDecl *RecordDecl) {
+RecordsAnalyzer::getRecursiveFields(const clang::RecordDecl *RecordDecl) {
   ASTContext *Ctx = &RecordDecl->getASTContext();
   auto *RecordDeclInfo =
       RecordsAnalyzer::RecordsInfoGlobalStore[Ctx][RecordDecl];
   assert(RecordDeclInfo->IsTreeStructure);
-  return RecordDeclInfo->getChildAccessDecls();
+  return RecordDeclInfo->getRecursiveFields();
 }
 
 const RecordInfo &
