@@ -1,4 +1,5 @@
-//===--- FuncrionFinder.cpp -----------------------------------------------===//
+//===--- FunctionAnalyzer.cpp
+//-----------------------------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -21,20 +22,23 @@
 #include <vector>
 
 void FunctionAnalyzer::dump() {
-  outs() << " isValidFuse:" << isValidFuse() << "\n";
+  outs() << "isValidFuse:" << isValidFuse() << "\n";
   for (auto *Stmt : Statements) {
-    outs() << "statement [ " << Stmt->getStatementId() << "]\n";
-    outs() << "reads: " << Stmt->getAccessPaths().getReadSet().size() << "\n";
+    outs() << "[" << Stmt->getStatementId() << "]\n";
+    outs() << "reads access paths  count: "
+           << Stmt->getAccessPaths().getReadSet().size() << "\n";
 
     for (auto *AccessPath : Stmt->getAccessPaths().getReadSet())
       AccessPath->dump();
 
-    outs() << "writes: " << Stmt->getAccessPaths().getWriteSet().size() << "\n";
+    outs() << "writes access paths count: "
+           << Stmt->getAccessPaths().getWriteSet().size() << "\n";
     for (auto *AccessPath : Stmt->getAccessPaths().getWriteSet())
       AccessPath->dump();
 
-    outs() << "deletes: " << Stmt->getAccessPaths().getDeleteSet().size() << "\n";
-    for (auto *AccessPath : Stmt->getAccessPaths().getDeleteSet())
+    outs() << "replaced nodes access paths count: "
+           << Stmt->getAccessPaths().getReplacedSet().size() << "\n";
+    for (auto *AccessPath : Stmt->getAccessPaths().getReplacedSet())
       AccessPath->dump();
   }
 }
@@ -337,8 +341,8 @@ void FunctionAnalyzer::addAccessPath(AccessPath *AccessPath, bool IsWrite) {
   CurrStatementInfo->getAccessPaths().insert(AccessPath, IsWrite);
 }
 
-void FunctionAnalyzer::addDeleteAccessPath(AccessPath *AccessPath) {
-  CurrStatementInfo->getAccessPaths().insertDeleteAccessPath(AccessPath);
+void FunctionAnalyzer::addReplacedNodeAccessPath(AccessPath *AccessPath) {
+  CurrStatementInfo->getAccessPaths().insertReplacedAccessPath(AccessPath);
 }
 
 bool FunctionAnalyzer::collectAccessPath_VisitStaticCastExpr(
@@ -362,6 +366,45 @@ bool FunctionAnalyzer::collectAccessPath_VisitStaticCastExpr(
 
 bool FunctionAnalyzer::collectAccessPath_VisitBinaryOperator(
     clang::BinaryOperator *BinaryExpr) {
+
+  // Handle new statement: <tree-node> = new <tree-structure>()
+  // Write now the current format is supported <tree-node> = new Type();
+  // No user defined constructor is allowed
+
+  if (BinaryExpr->isAssignmentOp() &&
+      BinaryExpr->getRHS()->getStmtClass() == clang::Stmt::CXXNewExprClass) {
+
+    // LHS
+    AccessPath *ReplaceNode = new AccessPath(BinaryExpr->getLHS(), this);
+
+    if (!ReplaceNode->isLegal() || !ReplaceNode->getValuePathSize() == 0 ||
+        !ReplaceNode->isOnTree() ||
+        !ReplaceNode->onlyUses(
+            getTraversedNodeDecl(),
+            RecordsAnalyzer::getRecordInfo(getTraversedTreeTypeDecl())
+                .getRecursiveFields())) {
+
+      Logger::getStaticLogger().logError(
+          "FunctionAnalyzer::collectAccessPath_VisitBinaryOperator: "
+          "new statement LHS is not legal");
+      delete ReplaceNode;
+      return false;
+    }
+    // Make sure no constructor is called
+    auto *ConstructorDecl = dyn_cast<CXXNewExpr>(BinaryExpr->getRHS())
+                                ->getConstructExpr()
+                                ->getConstructor();
+
+    if (!ConstructorDecl->isTrivial() || !ConstructorDecl->isImplicit()) {
+      Logger::getStaticLogger().logError(
+          "FunctionAnalyzer::collectAccessPath_VisitBinaryOperator: "
+          "constructor not supported");
+      delete ReplaceNode;
+      return false;
+    }
+    addReplacedNodeAccessPath(ReplaceNode);
+    return true;
+  }
 
   // RHS
   if (BinaryExpr->getRHS()->IgnoreImplicit()->getStmtClass() ==
@@ -658,10 +701,7 @@ bool FunctionAnalyzer::collectAccessPath_VisitDeclsStmt(clang::DeclStmt *Stmt) {
 bool FunctionAnalyzer::collectAccessPath_VisitCXXDeleteExpr(
     clang::CXXDeleteExpr *Expr) {
 
-  Expr->dump();
   auto *DeleteDecl = Expr->getOperatorDelete();
-  DeleteDecl->dump();
-
 
   if (DeleteDecl->hasBody() || Expr->isArrayForm() || Expr->isGlobalDelete()) {
     Logger::getStaticLogger().logError(
@@ -672,13 +712,13 @@ bool FunctionAnalyzer::collectAccessPath_VisitCXXDeleteExpr(
 
   // Make sure there are no destructors
   std::stack<const clang::CXXRecordDecl *> Stack;
-  Stack.push(Expr->getDestroyedType()->getAsCXXRecordDecl ());
+  Stack.push(Expr->getDestroyedType()->getAsCXXRecordDecl());
 
   while (!Stack.empty()) {
     const clang::CXXRecordDecl *TopOfStack = Stack.top();
     Stack.pop();
 
-    if(TopOfStack->hasUserDeclaredDestructor ()){
+    if (TopOfStack->hasUserDeclaredDestructor()) {
       Logger::getStaticLogger().logError(
           "FunctionAnalyzer::collectAccessPath_VisitCXXDeleteExpr : "
           "user declared destructors not unsupported");
@@ -690,7 +730,6 @@ bool FunctionAnalyzer::collectAccessPath_VisitCXXDeleteExpr(
   }
 
   AccessPath *NewAccessPath = new AccessPath(Expr->getArgument(), this);
-  NewAccessPath->dump();
   if (!NewAccessPath->isLegal() || !NewAccessPath->isOnTree() ||
       !NewAccessPath->getValuePathSize() == 0 ||
       !NewAccessPath->onlyUses(
@@ -700,11 +739,11 @@ bool FunctionAnalyzer::collectAccessPath_VisitCXXDeleteExpr(
     Logger::getStaticLogger().logError(
         "FunctionAnalyzer::collectAccessPath_VisitCXXDeleteExpr : "
         "not supported delete argument");
-        delete NewAccessPath;
+    delete NewAccessPath;
     return false;
   }
 
-  addDeleteAccessPath(NewAccessPath);
+  addReplacedNodeAccessPath(NewAccessPath);
 
   return true;
 }

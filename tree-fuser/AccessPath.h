@@ -74,7 +74,10 @@ public:
 
   /// Print the content of the access path
   void dump() {
-    outs() <<"IsLocal:" << isLocal()<<". Value Start:"<<getValueStartIndex()<< " .IsLegal:" << IsLegal << ". Content:" << AccessPathString << "\n";
+    outs() << "IsLocal:" << isLocal()
+           << ". Value Start:" << getValueStartIndex()
+           << " .IsLegal:" << IsLegal << ".\nContent:" << AccessPathString
+           << "\n";
   }
 
   bool hasValuePart() const;
@@ -110,7 +113,7 @@ public:
 
   StrictAccessInfo getAnnotationInfo() const { return AnnotationInfo; }
 
-  StrictAccessInfo setAnnotationInfo(StrictAccessInfo &NewValue) {
+  void setAnnotationInfo(StrictAccessInfo &NewValue) {
     AnnotationInfo = NewValue;
   }
 
@@ -122,26 +125,25 @@ class AccessPathContainer {
 private:
   AccessPathSet ReadSet;
   AccessPathSet WriteSet;
-  AccessPathSet DeleteSet;
+
+  /// Stored access paths to nodes that are deleted or replaced (assigned to new
+  /// nodes)
+  AccessPathSet ReplacedSet;
 
 public:
+  /// Insert a normal read, write access path
   bool insert(AccessPath *AccessPath, bool IsWrite);
 
-  bool insertDeleteAccessPath(AccessPath *AccessPath);
+  /// Insert an access path to a node that is deleted or assigned to a new node
+  bool insertReplacedAccessPath(AccessPath *AccessPath);
 
   void freeAccessPaths();
 
-  const AccessPathSet &getReadSet() const {
-    return ReadSet;
-  }
+  const AccessPathSet &getReadSet() const { return ReadSet; }
 
-  const AccessPathSet &getWriteSet() const {
-    return WriteSet;
-  }
+  const AccessPathSet &getWriteSet() const { return WriteSet; }
 
-  const AccessPathSet &getDeleteSet() const {
-    return DeleteSet;
-  }
+  const AccessPathSet &getReplacedSet() const { return ReplacedSet; }
 };
 
 #endif

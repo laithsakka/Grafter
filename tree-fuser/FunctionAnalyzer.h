@@ -1,4 +1,4 @@
-//===--- FuncrionFinder.h -------------------------------------------------===//
+//===--- FunctionAnalyzer.h -------------------------------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -52,10 +52,10 @@ private:
   /// Add an access path to the currently traversed statement information
   void addAccessPath(AccessPath *AccessPath, bool IsRead);
 
-  /// Add a delete access path to the traversed statment
-  void addDeleteAccessPath(AccessPath *AccessPath);
+  /// Add an access path to a node that is deleted or assigned to a new node 
+  void addReplacedNodeAccessPath(AccessPath *AccessPath);
 
-  /// Perform checks that confirms that the body of the function with treefuser
+  /// Perform checks that confirms that the body of the function with tree-fuser
   /// semantics
   bool checkFuseSema();
 

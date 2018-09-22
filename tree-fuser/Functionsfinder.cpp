@@ -1,4 +1,4 @@
-//===--- FuncrionFinder.cpp -----------------------------------------------===//
+//===--- FunctionsFinder.cpp -----------------------------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -13,6 +13,8 @@
 #include "FunctionsFinder.h"
 #include "AccessPath.h"
 #include "Logger.h"
+
+#define DEBUG_TYPE "FunctionsFinder.cpp"
 
 bool FunctionsFinder::VisitFunctionDecl(clang::FunctionDecl *FuncDeclaration) {
   if (FuncDeclaration->hasBody() == false)
@@ -35,5 +37,6 @@ bool FunctionsFinder::VisitFunctionDecl(clang::FunctionDecl *FuncDeclaration) {
   }
 
   FunctionsInformation[FuncDeclaration] = FuncInfo;
+  LLVM_DEBUG(if(FuncInfo->isValidFuse()){FuncInfo->dump();});
   return true;
 }

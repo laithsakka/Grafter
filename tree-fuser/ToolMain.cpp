@@ -54,7 +54,7 @@ int main(int argc, const char **argv) {
   for (auto &ASTUnit : ASTList)
     FunctionsInfo.findFunctions(ASTUnit.get()->getASTContext());
 
-  outs() << ("INFO: running transformation");
+  outs() << ("INFO: running transformation\n");
 
   for (auto &ASTUnit : ASTList) {
     auto *Ctx = &ASTUnit.get()->getASTContext();

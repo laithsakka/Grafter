@@ -22,8 +22,8 @@ bool AccessPathContainer::insert(AccessPath *AccessPath, bool IsWrite) {
     return ReadSet.insert(AccessPath).second;
 }
 
-bool AccessPathContainer::insertDeleteAccessPath(AccessPath *AccessPath) {
-  return DeleteSet.insert(AccessPath).second;
+bool AccessPathContainer::insertReplacedAccessPath(AccessPath *AccessPath) {
+  return ReplacedSet.insert(AccessPath).second;
 }
 
 void AccessPathContainer::freeAccessPaths() {
@@ -33,7 +33,7 @@ void AccessPathContainer::freeAccessPaths() {
   for (auto *Entry : WriteSet)
     delete Entry;
 
-  for (auto *Entry : DeleteSet)
+  for (auto *Entry : ReplacedSet)
     delete Entry;
 }
 
