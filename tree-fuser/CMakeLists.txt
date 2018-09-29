@@ -12,6 +12,8 @@ add_clang_executable(tree-fuser
  ToolMain.cpp
  DependenceAnalyzer.cpp
  FuseTransformation.cpp
+ FSMUtility.cpp
+ StatementInfo.cpp
 
  DEPENDS
  intrinsics_gen
@@ -29,4 +31,5 @@ target_link_libraries(tree-fuser
   clangRewriteFrontend
   clangStaticAnalyzerFrontend
   clangTooling
+  /usr/local/lib/libfst.13.dylib
   )

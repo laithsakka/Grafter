@@ -71,7 +71,7 @@ public:
 
   /// Return true if the declaration type is built in type or a record(class or
   /// struct)
-  static bool isScaler(clang::ValueDecl *const ValueDecl);
+  static bool isPrimitiveScaler(clang::ValueDecl *const ValueDecl);
 
   /// Return true if all the member and the nested members are scalers
   static bool isCompleteScaler(clang::ValueDecl *const ValueDecl);

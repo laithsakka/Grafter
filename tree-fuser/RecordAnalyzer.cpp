@@ -34,17 +34,17 @@ bool RecordsAnalyzer::isCompleteScaler(clang::ValueDecl *const Decl) {
   if (Decl->getType()->isBuiltinType())
     return true;
 
-  if (!Decl->getType()->isClassType())
+  if (!Decl->getType()->isClassType() && !Decl->getType()->isStructureType()) 
     return false;
-
+  
   auto *Ctx = &Decl->getASTContext();
 
   auto *RecordDecl = Decl->getType()->getAsCXXRecordDecl();
   auto *RecordInfo = RecordsAnalyzer::RecordsInfoGlobalStore[Ctx][RecordDecl];
 
-  if (RecordInfo && RecordInfo->IsCompleteScaler != -1)
+  if (RecordInfo && RecordInfo->IsCompleteScaler != -1)  
     return RecordInfo->IsCompleteScaler;
-
+  
   auto It = RecordDecl->field_begin();
   while (It != RecordDecl->field_end()) {
     if (!isCompleteScaler(*It)) {
@@ -55,15 +55,11 @@ bool RecordsAnalyzer::isCompleteScaler(clang::ValueDecl *const Decl) {
   return RecordInfo->IsCompleteScaler = true;
 }
 
-bool RecordsAnalyzer::isScaler(clang::ValueDecl *const Decl) {
+bool RecordsAnalyzer::isPrimitiveScaler(clang::ValueDecl *const Decl) {
 
   if (Decl->getType()->isBuiltinType())
     return true;
-
-  else if (Decl->getType()->isClassType() ||
-           Decl->getType()->isStructureType()) {
-    return true;
-  } else
+    
     return false;
 }
 
@@ -101,7 +97,7 @@ bool RecordsAnalyzer::VisitCXXRecordDecl(
     }
 
     // Check if the type of the field is recursive
-
+    
     std::set<const clang::CXXRecordDecl *> DeclTypes;
 
     std::stack<const clang::CXXRecordDecl *> Stack;

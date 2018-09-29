@@ -36,31 +36,5 @@ private:
       FunctionAnalyzer *Traversal2,
       unordered_map<StatementInfo *, DG_Node *> &StmtToGNodeT1,
       unordered_map<StatementInfo *, DG_Node *> &StmtToGNodeT2);
-
-  /// Add a dependence between two statement nodes with out considering possible
-  /// extended accesses
-  void addStmtToStmtDependencies(DependenceGraph *Graph, DG_Node *S1Node,
-                                 DG_Node *S2Node,
-                                 const AccessPathSet &S1Accesses,
-                                 const AccessPathSet &S2Accesses, bool Intra);
-
-  /// Return true if two access paths access have the same value part(even if
-  /// the accessed object is on different nodes)
-  // bool haveSameValuePart(AccessPath *AP1, AccessPath *AP2);
-
-  /// Add dependence between from a call to a statement node considering all
-  /// extended accesses of the call
-  void addStmtToCallDeps(DependenceGraph *Graph, DG_Node *StmtNode,
-                         DG_Node *CallNode);
-
-  /// Add dependence between from a statement to a call node considering all
-  /// extended accesses of the call
-  void addCallToStmtDeps(DependenceGraph *Graph, DG_Node *CallNode,
-                         DG_Node *StmtNode);
-
-  /// Add dependence between two call statements considering all extended
-  /// accesses of the calls
-  void addCallToCallDeps(DependenceGraph *Graph, DG_Node *C1Node,
-                         DG_Node *C2Node, bool WithinSameTraversal);
 };
 #endif /* DependenceAnalyzer_hpp */

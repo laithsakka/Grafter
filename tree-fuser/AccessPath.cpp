@@ -104,14 +104,13 @@ AccessPath::AccessPath(clang::Expr *SourceExpression,
     return;
 
   setValueStartIndex();
-  // special check
-  // Too many hacks this is to make sure that if the accespath is onTree
+
+  // Special checks
+
   if (IsStrictAccessCall && !AnnotationInfo->IsGlobal && !isOnTree()) {
     Logger::getStaticLogger().logError("Invalid access path");
     IsLegal = false;
   }
-
-  // Check that the access path is valid
   if (IsStrictAccessCall && isOnTree()) {
     if (SplittedAccessPath[0].second !=
         this->EnclosingFunction->TraversedNodeDecl) {
@@ -126,11 +125,26 @@ AccessPath::AccessPath(clang::Expr *SourceExpression,
     }
   }
 
-  for (int I = 1; I < getValueStartIndex(); I++) {
-    if ((!EnclosingFunction->isInChildList(SplittedAccessPath[I].second))) {
-      Logger::getStaticLogger().logError(
-          "AccessPath::VisitMemberExpr not tree node access");
-      IsLegal = false;
+  if (isOnTree()) {
+    for (int I = 1; I < getValueStartIndex(); I++) {
+      if ((!EnclosingFunction->isInChildList(SplittedAccessPath[I].second))) {
+        Logger::getStaticLogger().logError(
+            "on-tree access-path contains invalid tree access symbol");
+        SplittedAccessPath[I].second->dump();
+        dump();
+        IsLegal = false;
+      }
+    }
+  }
+
+  if (getValueStartIndex() != -1) {
+    for (int I = getValueStartIndex(); I < SplittedAccessPath.size(); I++) {
+      if (getDeclAtIndex(I)->getType()->isPointerType() ||
+          getDeclAtIndex(I)->getType()->isReferenceType()) {
+        Logger::getStaticLogger().logError(
+            "access-path have pointer/reference in value part");
+        IsLegal = false;
+      }
     }
   }
 }
@@ -148,6 +162,8 @@ AccessPath::AccessPath(clang::VarDecl *VarDeclaration,
       make_pair(VarDeclaration->getNameAsString(), VarDeclaration));
 
   ValueStartIndex = 0;
+  // Recognize the symbol by the automata generator
+  FSMUtility::addSymbol(VarDeclaration);
 }
 
 AccessPath::AccessPath(clang::FunctionDecl *FunctionDeclaration,
@@ -240,6 +256,7 @@ void AccessPath::setValueStartIndex() {
     if (EnclosingFunction->TraversedNodeDecl != ValueDecl &&
         !EnclosingFunction->isInChildList(ValueDecl)) {
       ValueStartIndex = I;
+      break;
     }
   }
 }
@@ -261,6 +278,9 @@ void AccessPath::appendSymbol(clang::ValueDecl *NodeDecleration) {
     SplittedAccessPath.insert(SplittedAccessPath.begin(),
                               make_pair(AccessSymbol, NodeDecleration));
   }
+
+  // Recognize the symbol by the automata generator
+  FSMUtility::addSymbol(NodeDecleration);
 }
 
 bool AccessPath::parseAccessPath(clang::MemberExpr *Expression) {
@@ -350,4 +370,55 @@ bool AccessPath::handleNextExpression(clang::Stmt *NextExpression) {
     return false;
   }
   return true;
+}
+
+const FSM &AccessPath::getWriteAutomata() {
+  if (WriteAutomata == nullptr) {
+    WriteAutomata = new FSM();
+    int StateId = WriteAutomata->AddState();
+    WriteAutomata->SetStart(StateId /*0*/);
+
+    bool First = true;
+    for (auto &Entry : SplittedAccessPath) {
+
+      if (First && isOnTree()) {
+        StateId = WriteAutomata->AddState();
+        FSMUtility::addTraversedNodeTransition(*WriteAutomata, StateId - 1,
+                                               StateId);
+        First = false;
+        continue;
+      }
+      StateId = WriteAutomata->AddState();
+      FSMUtility::addTransition(*WriteAutomata, StateId - 1, StateId,
+                                Entry.second);
+    }
+    WriteAutomata->SetFinal(StateId, 0);
+  }
+  return *WriteAutomata;
+}
+
+const FSM &AccessPath::getReadAutomata() {
+  if (ReadAutomata == nullptr) {
+    ReadAutomata = new FSM();
+    int StateId = ReadAutomata->AddState();
+    ReadAutomata->SetStart(StateId /*0*/);
+
+    bool First = true;
+    for (auto &Entry : SplittedAccessPath) {
+
+      if (First && isOnTree()) {
+        StateId = ReadAutomata->AddState();
+        FSMUtility::addTraversedNodeTransition(*ReadAutomata, StateId - 1,
+                                               StateId);
+        ReadAutomata->SetFinal(StateId, 0);
+        First = false;
+        continue;
+      }
+      StateId = ReadAutomata->AddState();
+      FSMUtility::addTransition(*ReadAutomata, StateId - 1, StateId,
+                                Entry.second);
+      ReadAutomata->SetFinal(StateId, 0);
+    }
+  }
+  return *ReadAutomata;
 }

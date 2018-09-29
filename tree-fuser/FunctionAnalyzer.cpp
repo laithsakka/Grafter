@@ -1,5 +1,4 @@
-//===--- FunctionAnalyzer.cpp
-//-----------------------------------------------===//
+//===--- FunctionAnalyzer.cpp ---------------------------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -272,11 +271,12 @@ bool FunctionAnalyzer::checkFuseSema() {
     return false;
   }
 
-  // All other parameters must be scalers
+  // All other parameters must be complete  scalers
   for (int i = 1; i < FuncDeclNode->parameters().size(); i++) {
-    if (!RecordsAnalyzer::isScaler(FuncDeclNode->parameters()[i])) {
+    if (!RecordsAnalyzer::isCompleteScaler(FuncDeclNode->parameters()[i])) {
       Logger::getStaticLogger().logError(
-          "fuse method has non-scaler parameter ");
+          "fuse method has non complete-scaler parameter ");
+      FuncDeclNode->parameters()[i]->dump();
 
       return false;
     }
@@ -368,9 +368,8 @@ bool FunctionAnalyzer::collectAccessPath_VisitBinaryOperator(
     clang::BinaryOperator *BinaryExpr) {
 
   // Handle new statement: <tree-node> = new <tree-structure>()
-  // Write now the current format is supported <tree-node> = new Type();
-  // No user defined constructor is allowed
-
+  // Rightnow the current only supported format is <tree-node> = new Type();
+  // No user defined constructors are allowed
   if (BinaryExpr->isAssignmentOp() &&
       BinaryExpr->getRHS()->getStmtClass() == clang::Stmt::CXXNewExprClass) {
 
@@ -447,13 +446,14 @@ bool FunctionAnalyzer::collectAccessPath_VisitBinaryOperator(
       addAccessPath(NewAccessPath, false);
 
     // TODO : create enum what is -1!
-
-    if (NewAccessPath->getValueStartIndex() == -1 &&
-        BinaryExpr->isAssignmentOp()) {
-      Logger::getStaticLogger().logError(
-          "collectAccessPath_VisitBinaryOperator: writing to tree Nodes not "
-          "allowed ");
-      return false;
+    if (BinaryExpr->isAssignmentOp()) {
+      if (NewAccessPath->isOnTree() &&
+          NewAccessPath->getValueStartIndex() == -1) {
+        Logger::getStaticLogger().logError(
+            "collectAccessPath_VisitBinaryOperator: writing to tree nodes not "
+            "allowed ");
+        return false;
+      }
     }
 
   } else {
@@ -652,9 +652,7 @@ bool FunctionAnalyzer::collectAccessPath_VisitDeclsStmt(clang::DeclStmt *Stmt) {
 
     assert(VarDecl);
 
-    if (!VarDecl->getType()->isBuiltinType() &&
-        !VarDecl->getType()->isClassType() &&
-        !VarDecl->getType()->isStructureType()) {
+    if (!RecordsAnalyzer::isCompleteScaler(VarDecl)) {
       Logger::getStaticLogger().logError(
           "FunctionAnalyzer::collectAccessPath_VisitDeclsStmt declaration  "
           "type is not allowed");

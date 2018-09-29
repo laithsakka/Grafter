@@ -226,8 +226,7 @@ void DependenceGraph::addDependency(DEPENDENCE_TYPE DependenceType,
   }
 }
 
-// Check that there is no non-fusable dependence between merged Nodes
-// and that no two of them belongs to the same traversal
+// Check that merged nodes call the same child
 bool DependenceGraph::hasWrongFuse(MergeInfo *MergeInfo) {
   std::set<int> TraversalIds;
   clang::FieldDecl *CalledChild =
@@ -238,6 +237,7 @@ bool DependenceGraph::hasWrongFuse(MergeInfo *MergeInfo) {
     if (MergedNode->StatementInfo->getCalledChild() != CalledChild)
       return true;
 
+    // one from each traversal max .. why this check ?
     if (TraversalIds.count(MergedNode->TraversalId))
       return true;
 
@@ -351,8 +351,8 @@ bool DependenceGraph::hasCycle() {
   std::unordered_map<DG_Node *, int> Visited;
   stack<DG_Node *> CyclePath;
   for (auto Node : Nodes) {
-    // Not  Grey 
-    assert(Visited[Node]!=1);
+    // Not  Grey
+    assert(Visited[Node] != 1);
     if (!Visited[Node]) {
       if (hasCycleRec(Node, Visited, CyclePath)) {
         // printCyclePath(CyclePath);

@@ -12,6 +12,7 @@
 #ifndef TREE_FUSER_ACCESS_PATH_H
 #define TREE_FUSER_ACCESS_PATH_H
 
+#include "FSMUtility.h"
 #include "LLVMDependencies.h"
 #include "Logger.h"
 
@@ -41,7 +42,8 @@ private:
   /// An index for the the start index of the value part in splittedAccessPath
   /// array
   int ValueStartIndex = -1;
-
+  
+  /// A tempory created access-path that does not represent real access
   bool IsDummy = false;
 
   /// Indicates that the access is legal
@@ -58,6 +60,12 @@ private:
 
   /// The annotation information for a strict annotated access
   StrictAccessInfo AnnotationInfo;
+
+  /// Automata representation for writing the access-path
+  FSM *WriteAutomata = nullptr;
+
+  /// Automata representation for reading the access-path
+  FSM *ReadAutomata = nullptr;
 
 public:
   /// Creates an AccessPath from an expression
@@ -97,10 +105,13 @@ public:
 
   int getValueStartIndex() const;
 
+  /// Return the length of the access-path
   int getDepth() const;
 
+  /// Return the size of the value part of the access-path
   int getValuePathSize() const;
 
+  /// Return the size of the tree acess part of the access-path
   int getTreeAccessPathSize() const;
 
   int getTreeAccessPathEndIndex() const;
@@ -118,6 +129,22 @@ public:
   }
 
   std::vector<pair<string, clang::ValueDecl *>> SplittedAccessPath;
+
+  /// Return an linear FSM that represents reading the access-path (all states
+  /// are final)
+  const FSM &getReadAutomata();
+
+  /// Return an linear FSM that represents writing the access-path (only last
+  /// state final)
+  const FSM &getWriteAutomata();
+
+  ~AccessPath() {
+    if (WriteAutomata)
+      delete WriteAutomata;
+
+    if (ReadAutomata)
+      delete ReadAutomata;
+  }
 };
 
 class AccessPathContainer {
@@ -137,12 +164,16 @@ public:
   /// Insert an access path to a node that is deleted or assigned to a new node
   bool insertReplacedAccessPath(AccessPath *AccessPath);
 
+  /// Delete the dynamically allocated access-paths
   void freeAccessPaths();
 
+  /// Returns the set of the read access-paths
   const AccessPathSet &getReadSet() const { return ReadSet; }
 
+  /// Returns the set of the write access-paths
   const AccessPathSet &getWriteSet() const { return WriteSet; }
 
+  /// Returns the set of the replaced access-paths
   const AccessPathSet &getReplacedSet() const { return ReplacedSet; }
 };
 

@@ -31,6 +31,8 @@
 #include <sstream>
 #include <unistd.h>
 
+#define DEBUG_TYPE ""
+
 using namespace llvm;
 
 struct StrictAccessInfo {
