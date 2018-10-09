@@ -16,7 +16,7 @@
 #include "FunctionAnalyzer.h"
 #include "FunctionsFinder.h"
 #include "LLVMDependencies.h"
-
+#include <TraversalSynthesizer.h>
 #include <set>
 #include <stdio.h>
 #include <unordered_map>
@@ -61,18 +61,21 @@ public:
 
   bool VisitFunctionDecl(const clang::FunctionDecl *FunctionDec);
 };
-
+class TraversalSynthesizer;
 class FusionTransformer {
 private:
   clang::Rewriter Rewriter;
   FunctionsFinder *FunctionsInformation;
   ASTContext *Ctx;
   DependenceAnalyzer DepAnalyzer;
+  TraversalSynthesizer* Synthesizer = nullptr;
 
 public:
   /// Perform fusion transformation on a given list of candidates
-  void performFusion(const clang::FunctionDecl *EnclosingFunctionDecl,
-                     const vector<clang::CallExpr *> &Candidate);
+  void performFusion(const vector<clang::CallExpr *> &Candidate,
+                     bool IsTopLevel,
+                     const clang::FunctionDecl *EnclosingFunctionDecl
+                     /*just needed fo top level*/);
 
   /// Comming soruce code updates to the source files
   void overwriteChangedFiles() { Rewriter.overwriteChangedFiles(); }
@@ -85,11 +88,7 @@ public:
                               unordered_map<DG_Node *, bool> &visited,
                               DG_Node *node);
 
-  FusionTransformer(ASTContext *Ctx, FunctionsFinder *FunctionsInfo) {
-    Rewriter.setSourceMgr(Ctx->getSourceManager(), Ctx->getLangOpts());
-    this->Ctx = Ctx;
-    this->FunctionsInformation = FunctionsInfo;
-  }
+  FusionTransformer(ASTContext *Ctx, FunctionsFinder *FunctionsInfo);
 };
 
 #endif

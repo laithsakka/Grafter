@@ -12,6 +12,21 @@
 #include "DependenceGraph.h"
 #include <stack>
 
+std::vector<DG_Node *> MergeInfo::getCallsOrdered() {
+  vector<DG_Node *> Res;
+  for (auto *Node : MergedNodes) {
+    Res.push_back(Node);
+  }
+  sort(Res.begin(), Res.end(), [](const DG_Node *a, const DG_Node *b) {
+    if (a->getTraversalId() != b->getTraversalId())
+      return a->getTraversalId() < b->getTraversalId();
+    else
+      return a->getStatementInfo()->getStatementId() <
+             b->getStatementInfo()->getStatementId();
+  });
+  return Res;
+};
+
 bool DG_Node::allPredesVisited(
     std::unordered_map<DG_Node *, bool> &VisitedNodes) {
   if (!isMerged()) {
@@ -164,6 +179,7 @@ void DependenceGraph::dump() {
 // }
 
 void DependenceGraph::dumpMergeInfo() {
+  outs() << "Dumping Merge Info\n";
   unordered_map<MergeInfo *, bool> Visited;
   for (auto *Node : Nodes) {
     if (!Node->StatementInfo->isCallStmt())
@@ -171,7 +187,7 @@ void DependenceGraph::dumpMergeInfo() {
 
     if (!Node->isMerged()) {
       Logger::getStaticLogger().logDebug(
-          "unmerged call Node to child" +
+          "unmerged call Node to child:" +
           Node->StatementInfo->getCalledChild()->getNameAsString() + ":[" +
           to_string(Node->TraversalId) + "|" +
           to_string(Node->StatementInfo->getStatementId()) + "|" +
@@ -235,10 +251,6 @@ bool DependenceGraph::hasWrongFuse(MergeInfo *MergeInfo) {
   // check that they all have the same called child
   for (auto *MergedNode : MergeInfo->MergedNodes) {
     if (MergedNode->StatementInfo->getCalledChild() != CalledChild)
-      return true;
-
-    // one from each traversal max .. why this check ?
-    if (TraversalIds.count(MergedNode->TraversalId))
       return true;
 
     TraversalIds.insert(MergedNode->TraversalId);

@@ -126,61 +126,105 @@ const FSM &StatementInfo::getTreeWritesAutomata(bool IncludeExtended) {
     return *BaseTreeWritesAutomata;
 }
 
-FSM *StatementInfo::createExtendedAutomataPrefix(bool AllAccept) {
-  FSM *Prefix = new FSM();
+// Helper function used during the build of extended accesses only for on-tree
+// accesses
 
-  Prefix->AddState();
-  Prefix->SetStart(0);
+void buildFromAccessPath(FSM *FSMachine, int CurrState, AccessPath *AP,
+                         bool Reads) {
+  bool First = true;
+  for (auto &Entry : AP->SplittedAccessPath) {
 
-  Prefix->AddState();
-  FSMUtility::addTraversedNodeTransition(*Prefix, 0, 1);
-
-  // Add the transition to the called child
-  Prefix->AddState();
-  FSMUtility::addTransition(*Prefix, 1, 2, getCalledChild());
-
-  // Child*
-  for (auto *Child : EnclosingFunction->getCalledChildrenList())
-    FSMUtility::addTransition(*Prefix, 2, 2, Child);
-
-
-  if (AllAccept) {
-    Prefix->SetFinal(1, 0);
-    Prefix->SetFinal(2, 0);
-  } else {
-    Prefix->SetFinal(2, 0);
+    // ignore the first one since this function only called through the
+    if (First && AP->isOnTree()) {
+      First = false;
+      continue;
+    }
+    int NewState = FSMachine->AddState();
+    FSMUtility::addTransition(*FSMachine, CurrState, NewState, Entry.second);
+    CurrState = NewState;
+    if (Reads)
+      FSMachine->SetFinal(NewState, 0);
   }
-  return Prefix;
+  FSMachine->SetFinal(CurrState, 0);
+}
+
+// Helper function used during the build of extended accesses only for on-tree
+// accesses
+void buildFromSimpleStmt(FSM *FSMachine, int CurrState, StatementInfo *Stmt,
+                         bool Reads) {
+  if (Reads) {
+    for (auto *AP : Stmt->getAccessPaths().getReadSet()) {
+      if (AP->isOnTree())
+        buildFromAccessPath(FSMachine, CurrState, AP, true);
+    }
+    for (auto *AP : Stmt->getAccessPaths().getWriteSet()) {
+      if (AP->isOnTree())
+        buildFromAccessPath(FSMachine, CurrState, AP, true);
+    }
+    for (auto *AP : Stmt->getAccessPaths().getReplacedSet()) {
+      if (AP->isOnTree())
+        buildFromAccessPath(FSMachine, CurrState, AP, true);
+    }
+  } else {
+    for (auto *AP : Stmt->getAccessPaths().getWriteSet()) {
+      if (AP->isOnTree())
+        buildFromAccessPath(FSMachine, CurrState, AP, false);
+    }
+    for (auto *AP : Stmt->getAccessPaths().getReplacedSet()) {
+      if (AP->isOnTree())
+        buildFromAccessPath(FSMachine, CurrState, AP, false);
+    }
+  }
+}
+
+// Helper function used during the build of extended accesses only for on-tree
+// accesses
+void buildFromCall(
+    FSM *FSMachine, int CurrState, StatementInfo *CallStmt,
+    std::unordered_map<FunctionAnalyzer *, int> FunctionToStateId, bool Reads) {
+
+  buildFromSimpleStmt(FSMachine, CurrState, CallStmt, Reads);
+
+  auto *CalledFunction =
+      FunctionsFinder::getFunctionInfo(CallStmt->getCalledFunction());
+
+  if (!FunctionToStateId.count(CalledFunction)) {
+    int NewState = FSMachine->AddState();
+    LLVM_DEBUG(cout << "add function mapping:"
+                    << CalledFunction->getFunctionDecl()->getNameAsString()
+                    << ":" << NewState << "\n");
+
+    FunctionToStateId[CalledFunction] = NewState;
+
+    for (auto *Stmt : CalledFunction->getStatements()) {
+      if (Stmt->isCallStmt())
+        buildFromCall(FSMachine, NewState, Stmt, FunctionToStateId, Reads);
+      else
+        buildFromSimpleStmt(FSMachine, NewState, Stmt, Reads);
+    }
+    if (Reads)
+      FSMachine->SetFinal(NewState, 0);
+  }
+  FSMUtility::addTransition(*FSMachine, CurrState,
+                            FunctionToStateId[CalledFunction],
+                            CallStmt->getCalledChild());
 }
 
 const FSM &StatementInfo::getExtendedTreeReadsAutomata() {
   assert(isCallStmt());
   if (!ExtendedTreeReadsAutomata) {
-    auto *PrefixAcceptedAll = createExtendedAutomataPrefix(true);
-    auto *PrefixAcceptedLast = createExtendedAutomataPrefix(false);
-
-    FSM AllReads;
-    // Followed by any read access in the body of the traversal
-    for (auto *Stmt : EnclosingFunction->getStatements()) {
-      auto *RootRemoved =
-          FSMUtility::CopyRootRemoved(Stmt->getTreeReadsAutomata(false));
-
-      fst::Union(&AllReads, *RootRemoved);
-
-      delete RootRemoved;
-    }
-
-    fst::Concat(PrefixAcceptedLast, AllReads);
-    for (int i = 1; i <= 3; i++) {
-      PrefixAcceptedLast->SetFinal(i,0);
-    }
-
+    outs() << "doing:" << getStatementId() << "\n";
     ExtendedTreeReadsAutomata = new FSM();
-    fst::Union(ExtendedTreeReadsAutomata, *PrefixAcceptedLast);
-    fst::ArcSort(ExtendedTreeReadsAutomata, fst::ILabelCompare<fst::StdArc>());
+    ExtendedTreeReadsAutomata->AddState();
+    ExtendedTreeReadsAutomata->SetStart(0);
+    ExtendedTreeReadsAutomata->AddState();
+    FSMUtility::addTraversedNodeTransition(*ExtendedTreeReadsAutomata, 0, 1);
+    ExtendedTreeReadsAutomata->SetFinal(1, 0);
 
-    delete PrefixAcceptedAll;
-    delete PrefixAcceptedLast;
+    std::unordered_map<FunctionAnalyzer *, int> EmtyTable;
+    buildFromCall(ExtendedTreeReadsAutomata, 1, this, EmtyTable, true);
+
+    fst::ArcSort(ExtendedTreeReadsAutomata, fst::ILabelCompare<fst::StdArc>());
   }
   return *ExtendedTreeReadsAutomata;
 }
@@ -188,19 +232,16 @@ const FSM &StatementInfo::getExtendedTreeReadsAutomata() {
 const FSM &StatementInfo::getExtendedTreeWritesAutomata() {
   assert(isCallStmt());
   if (!ExtendedTreeWritesAutomata) {
-    ExtendedTreeWritesAutomata = createExtendedAutomataPrefix(false);
+    ExtendedTreeWritesAutomata = new FSM();
+    ExtendedTreeWritesAutomata->AddState();
+    ExtendedTreeWritesAutomata->SetStart(0);
+    ExtendedTreeWritesAutomata->AddState();
+    FSMUtility::addTraversedNodeTransition(*ExtendedTreeWritesAutomata, 0, 1);
 
-    FSM AllWrites;
-    // Followed by any read access in the body of the traversal
-    for (auto *Stmt : EnclosingFunction->getStatements()) {
-      auto *RootRemoved =
-          FSMUtility::CopyRootRemoved(Stmt->getTreeWritesAutomata(false));
+    std::unordered_map<FunctionAnalyzer *, int> EmtyTable;
 
-      fst::Union(&AllWrites, *RootRemoved);
-    }
+    buildFromCall(ExtendedTreeWritesAutomata, 1, this, EmtyTable, false);
 
-    fst::Concat(ExtendedTreeWritesAutomata, AllWrites);
-    fst::Union(ExtendedTreeWritesAutomata, getTreeWritesAutomata(false));
     fst::ArcSort(ExtendedTreeWritesAutomata, fst::ILabelCompare<fst::StdArc>());
   }
 

@@ -35,6 +35,10 @@ struct MergeInfo {
 public:
   std::set<DG_Node *> MergedNodes;
   bool isInMergedNodes(DG_Node *Node) { return MergedNodes.count(Node); }
+
+  /// Return a list of the merged nodes ordered by their original execution
+  /// order
+  vector<DG_Node *> getCallsOrdered();
 };
 
 struct DependenceInfo {
@@ -56,7 +60,8 @@ private:
   std::unordered_map<DG_Node *, DependenceInfo> Successors;
   std::unordered_map<DG_Node *, DependenceInfo> Predecessors;
 
-  /// A unique Id associated with each traversal within the dependence graph
+  /// A unique Id associated with each traversal within the dependence graph in
+  /// their original order
   int TraversalId;
 
   /// Pointer to the statment information associated with the stored node
@@ -71,29 +76,25 @@ private:
 public:
   bool isRootNode();
 
-  struct MergeInfo * getMergeInfo(){
+  struct MergeInfo *getMergeInfo() const {
     return MergeInfo;
   }
 
-  class StatementInfo *getStatementInfo() {
+  class StatementInfo *getStatementInfo() const {
     return StatementInfo;
   }
 
   std::unordered_map<DG_Node *, DependenceInfo> &getSuccessors() {
-     return Successors;
+    return Successors;
   }
 
   std::unordered_map<DG_Node *, DependenceInfo> &getPredecessors() {
     return Predecessors;
   }
 
-  bool isMerged() {
-    return IsMerged;
-  }
+  bool isMerged() const { return IsMerged; }
 
-  int getTraversalId() {
-    return TraversalId;
-  }
+  int getTraversalId() const { return TraversalId; }
 
   DG_Node(class StatementInfo *StmtInfo, int TraversalId_) {
     StatementInfo = StmtInfo;
@@ -111,9 +112,7 @@ private:
   std::vector<DG_Node *> Nodes;
 
 public:
-  std::vector<DG_Node *>& getNodes(){
-    return Nodes;
-  }
+  std::vector<DG_Node *> &getNodes() { return Nodes; }
 
   void dump();
 

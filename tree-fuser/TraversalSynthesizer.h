@@ -17,7 +17,7 @@
 #include "FunctionAnalyzer.h"
 #include "FunctionsFinder.h"
 #include "LLVMDependencies.h"
-
+#include <FuseTransformation.h>
 #include <set>
 #include <stdio.h>
 #include <unordered_map>
@@ -25,17 +25,20 @@
 
 struct FusedTraversalWritebackInfo;
 class StatmentPrinter;
+class FusionTransformer;
 
 class TraversalSynthesizer {
 private:
+  static std::map<clang::FunctionDecl *, int> FunDeclToNameId;
+  static int Count;
+
   /// A counter that tracks the number of synthesized traversals
-  static int FunctionCounter;
+  // int FunctionCounter;
 
-  /// A unique integer assignd to the synthesized traversal
-  int FunctionId;
-
-  /// Declaration of the function where the traversal is called
-  const clang::FunctionDecl *EnclosingFunctionDecl;
+  FusionTransformer *Transformer;
+  /// Maps synthesized traversals to their WriteBackInfo
+  std::unordered_map<string, FusedTraversalWritebackInfo *>
+      SynthesizedFunctions;
 
   /// ASTContext
   ASTContext *ASTContext;
@@ -43,57 +46,59 @@ private:
   /// Clang source code rewriter for the associated AST
   clang::Rewriter &Rewriter;
 
-  /// Toplogical order for all the statementa that need to be synthesized
-  std::vector<DG_Node *> &StatmentsTopologicalOrder;
-
-  /// List of the original function calls of the fused traversals
-  const vector<clang::CallExpr *> &TraversalsCallExpressionsList;
-
-  /// List of the declarations of the original traversals before fusion
-  std::vector<clang::FunctionDecl *> TraversalsDeclarationsList;
-
-  /// Creates a funciton name for a sub-traversal that traverse the
-  /// participating traversals
-  std::string createName(std::vector<bool> &ParticipatingTraversals);
-
-  /// Maps synthesized sub traversals to their WriteBackInfo
-  std::unordered_map<string, FusedTraversalWritebackInfo *>
-      SynthesizedFunctions;
+  int getFunctionId(clang::FunctionDecl *) ;
 
   /// Return the first participating traversal
-  int getFirstParticipatingTraversal(std::vector<bool> &ParticipatingTraversals);
+  int getFirstParticipatingTraversal(
+      const std::vector<bool> &ParticipatingTraversals) const;
 
   /// Count the number of participating traversals
   unsigned getNumberOfParticipatingTraversals(
-      std::vector<bool> &ParticipatingTraversals);
+      const std::vector<bool> &ParticipatingTraversals) const;
 
-  void generateWriteBackInfo(std::vector<bool> &ParticipatingTraversals,
-                             std::unordered_map<int, const clang::CallExpr *>
-                                 ParticipatingTraversalsAndCalls);
+  void setBlockSubPart(
+      string &Decls, std::string &BlockPart,
+      const std::vector<clang::FunctionDecl *> &ParticipatingTraversals,
+      int BlockId,
+      std::unordered_map<clang::FunctionDecl *, vector<DG_Node *>> &Statements);
 
-  void setBlockSubPart(string &Decls, std::string &BlockPart,
-                       std::vector<bool> &ParticipatingTraversals, int BlockId,
-                       std::vector<vector<DG_Node *>> Statements);
+  ///
+  void setCallPart(
+      std::string &CallPartText,
+      const std::vector<clang::CallExpr *> &ParticipatingCallExpr,
+      const std::vector<clang::FunctionDecl *> &ParticipatingTraversalsDecl,
+      DG_Node *CallNode, FusedTraversalWritebackInfo *WriteBackInfo);
 
-  void setCallPart(std::string &CallPart,
-                   std::vector<bool> &ParticipatingTraversals,
-                   DG_Node *CallNode,
-                   FusedTraversalWritebackInfo *WriteBackInfo);
-
-  /// Return true if a subtraversal with the given participating traversal is
-  /// already synthesized
-  bool isGenerated(vector<bool> &ParticipatingTraversals);
+  /// Return true if a subtraversal with the given participating traversal
+  /// is already synthesized
+  bool
+  isGenerated(const vector<clang::FunctionDecl *> &ParticipatingTraversals);
 
 public:
+  /// Creates a funciton name for a sub-traversal that traverse the
+  /// participating traversals
+  std::string
+  createName(const std::vector<clang::CallExpr *> &ParticipatingTraversals);
+
+  std::string
+  createName(const std::vector<clang::FunctionDecl *> &ParticipatingTraversal);
+  /// Return true if a subtraversal with the given participating traversal is
+  /// already synthesized
+  bool isGenerated(const vector<clang::CallExpr *> &ParticipatingTraversals);
+
   /// Generates the code of the new traversal
-  void writeFusedVersion();
+  void WriteUpdates(const std::vector<clang::CallExpr *> CallsExpressions,
+                    const clang::FunctionDecl *EnclosingFunctionDecl);
 
-  TraversalSynthesizer(
-      const vector<clang::CallExpr *> &TraversalsCallExpressions,
-      const clang::FunctionDecl *EnclosingFunDeclaration,
-      clang::ASTContext *ASTContext, clang::Rewriter &Rewriter_,
-      vector<DG_Node *> &StatmentsTopologicalOrder);
+  void generateWriteBackInfo(
+      const std::vector<clang::CallExpr *> &ParticipatingTraversals,
+      const std::vector<DG_Node *> &ToplogicalOrder);
 
+  TraversalSynthesizer(clang::ASTContext *ASTContext,
+                       clang::Rewriter &Rewriter_,
+                       FusionTransformer *Transformer_)
+      : Rewriter(Rewriter_), ASTContext(ASTContext), Transformer(Transformer_) {
+  }
 };
 
 class StatmentPrinter {
@@ -107,8 +112,7 @@ private:
   /// A string that represents the exit label (returns will jump to that)
   std::string NextLabel;
 
-  /// The function id of the synthesized traversal
-  int FunctionId;
+  int TraversalIndex;
 
   /// Variable used to track the depth of nested expressions
   int NestedExpressionDepth = 0;
@@ -121,11 +125,11 @@ public:
   /// synthesized traversal
   std::string printStmt(const clang::Stmt *Stmt, SourceManager &SM,
                         clang::ValueDecl *RootDecl, string NextLabel,
-                        int FunctionId) {
+                        int TraversalIndex) {
     this->Output = "";
     this->RootNodeDecl = RootDecl;
     this->NextLabel = NextLabel;
-    this->FunctionId = FunctionId;
+    this->TraversalIndex = TraversalIndex;
     this->NestedExpressionDepth = 0;
     print_handleStmt(Stmt, SM);
     return Output;
@@ -149,8 +153,7 @@ public:
   std::string Body;
   std::string ForwardDeclaration;
   std::string FunctionName;
-  std::unordered_map<int, const clang::CallExpr *>
-      ParticipatingTraversalsAndCalls;
+  std::vector<clang::CallExpr *> ParticipatingCalls;
 };
 
 #endif

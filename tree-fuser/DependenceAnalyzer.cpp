@@ -15,7 +15,23 @@
 #define ENABLE_CODE_MOTION 1
 
 DependenceGraph *DependenceAnalyzer::createDependnceGraph(
-    std::vector<FunctionAnalyzer *> Traversals) {
+    const std::vector<clang::CallExpr *> &Calls) {
+
+  std::vector<FunctionAnalyzer *> Temp;
+  Temp.resize(Calls.size());
+  transform(Calls.begin(), Calls.end(), Temp.begin(),
+            [](clang::CallExpr *CallExpr) {
+              auto *CalleeDecl =
+                  dyn_cast<clang::FunctionDecl>(CallExpr->getCalleeDecl())
+                      ->getDefinition();
+
+              return FunctionsFinder::getFunctionInfo(CalleeDecl);
+            });
+  return createDependnceGraph(Temp);
+}
+
+DependenceGraph *DependenceAnalyzer::createDependnceGraph(
+    const std::vector<FunctionAnalyzer *> &Traversals) {
 
   // Lookup graph nodes using traversal index and StatementInfo*
   std::unordered_map<int, std::unordered_map<StatementInfo *, DG_Node *>>
@@ -132,10 +148,10 @@ void DependenceAnalyzer::addInterTraversalDependecies(
     unordered_map<StatementInfo *, DG_Node *> &GraphNodesT2) {
 
   for (auto *Stmt1 : Traversal1->getStatements()) {
-    FSMUtility::print(Stmt1->getTreeWritesAutomata(),
-                      to_string(Stmt1->getStatementId()) + "w", 1);
-    FSMUtility::print(Stmt1->getTreeReadsAutomata(),
-                      to_string(Stmt1->getStatementId()) + "r", 1);
+    // FSMUtility::print(Stmt1->getTreeWritesAutomata(),
+    //                   to_string(Stmt1->getStatementId()) + "w", 1);
+    // FSMUtility::print(Stmt1->getTreeReadsAutomata(),
+    //                   to_string(Stmt1->getStatementId()) + "r", 1);
 
     for (auto *Stmt2 : Traversal2->getStatements()) {
 

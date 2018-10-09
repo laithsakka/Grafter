@@ -11,7 +11,6 @@
 #include "FuseTransformation.h"
 #include "DependenceAnalyzer.h"
 #include "DependenceGraph.h"
-#include "TraversalSynthesizer.h"
 
 bool FusionCandidatesFinder::VisitFunctionDecl(
     const clang::FunctionDecl *FuncDecl) {
@@ -88,49 +87,60 @@ bool FusionCandidatesFinder::areCompatibleCalls(clang::CallExpr *Call1,
   return true;
 }
 
+FusionTransformer::FusionTransformer(ASTContext *Ctx,
+                                     FunctionsFinder *FunctionsInfo) {
+  Rewriter.setSourceMgr(Ctx->getSourceManager(), Ctx->getLangOpts());
+  this->Ctx = Ctx;
+  this->FunctionsInformation = FunctionsInfo;
+  this->Synthesizer = new TraversalSynthesizer(Ctx, Rewriter, this);
+}
+
 void FusionTransformer::performFusion(
-    const clang::FunctionDecl *EnclosingFunctionDecl,
-    const vector<clang::CallExpr *> &Candidate) {
+    const vector<clang::CallExpr *> &Candidate, bool IsTopLevel,
+    const clang::FunctionDecl
+        *EnclosingFunctionDecl /*just needed fo top level*/) {
 
-  Logger::getStaticLogger().logInfo("Creating DG for a candidate");
+  // Check if function is generated before
+  if (!Synthesizer->isGenerated(Candidate)) {
 
-  std::vector<FunctionAnalyzer *> TmpList;
+    Logger::getStaticLogger().logInfo("Creating DG for a candidate");
+    DependenceGraph *DepGraph = DepAnalyzer.createDependnceGraph(Candidate);
+    DepGraph->dump();
 
-  for (auto *CallExpr : Candidate) {
-    auto *CalleeDecl = dyn_cast<clang::FunctionDecl>(CallExpr->getCalleeDecl());
-    TmpList.push_back(FunctionsInformation->FunctionsInformation[CalleeDecl]);
+    peformGreedyFusion(DepGraph);
+
+    DepGraph->dumpMergeInfo();
+
+    // Check that fusion was correctly made
+    assert(!DepGraph->hasCycle() && "dep graph has cycle");
+    assert(!DepGraph->hasWrongFuse() && "dep graph has wrong merging");
+
+    // Generate a topological sort
+    Logger::getStaticLogger().logDebug("Generating topological sort");
+
+    std::vector<DG_Node *> ToplogicalOrder = findToplogicalOrder(DepGraph);
+
+    Synthesizer->generateWriteBackInfo(Candidate, ToplogicalOrder);
   }
-  DependenceGraph *DepGraph = DepAnalyzer.createDependnceGraph(TmpList);
-  DepGraph->dump();
-  // DepGraph->dumpToPrint();
-
-  peformGreedyFusion(DepGraph);
-
-  DepGraph->dumpMergeInfo();
-
-  // Check that fusion was correctly made
-  assert(!DepGraph->hasCycle() && "dep graph has cycle");
-  assert(!DepGraph->hasWrongFuse() && "dep graph has wrong merging");
-
-  // Generate a topological sort
-  Logger::getStaticLogger().logDebug("Generating topological sort");
-
-  std::vector<DG_Node *> ToplogicalOrder = findToplogicalOrder(DepGraph);
-  TraversalSynthesizer TraversalSynthesizer(Candidate, EnclosingFunctionDecl,
-                                            this->Ctx, this->Rewriter,
-                                            ToplogicalOrder);
-  TraversalSynthesizer.writeFusedVersion();
+  if (IsTopLevel) {
+    Synthesizer->WriteUpdates(Candidate, EnclosingFunctionDecl);
+  }
 }
 
 void FusionTransformer::peformGreedyFusion(DependenceGraph *DepGraph) {
-
   unordered_map<clang::FieldDecl *, vector<DG_Node *>> ChildToCallers;
   for (auto *Node : DepGraph->getNodes()) {
     if (Node->getStatementInfo()->isCallStmt()) {
-      ChildToCallers[Node->getStatementInfo()->getCalledChild()].push_back(Node);
+      ChildToCallers[Node->getStatementInfo()->getCalledChild()].push_back(
+          Node);
     }
   }
 
+  LLVM_DEBUG(for (auto &Entry
+                  : ChildToCallers) {
+    outs() << Entry.first->getNameAsString() << ":" << Entry.second.size()
+           << "\n";
+  });
   vector<unordered_map<clang::FieldDecl *, vector<DG_Node *>>::iterator>
       IteratorsList;
 
@@ -162,6 +172,11 @@ void FusionTransformer::peformGreedyFusion(DependenceGraph *DepGraph) {
 
         if (DepGraph->hasCycle() ||
             DepGraph->hasWrongFuse(CallNodes[i]->getMergeInfo())) {
+          LLVM_DEBUG(outs()
+                     << "rollback on merge, " << DepGraph->hasCycle() << ","
+                     << DepGraph->hasWrongFuse(CallNodes[i]->getMergeInfo())
+                     << "\n");
+
           DepGraph->unmerge(CallNodes[j]);
         }
       }
@@ -172,7 +187,6 @@ void FusionTransformer::peformGreedyFusion(DependenceGraph *DepGraph) {
 void FusionTransformer::findToplogicalOrderRec(
     vector<DG_Node *> &TopOrder, unordered_map<DG_Node *, bool> &Visited,
     DG_Node *Node) {
-
   if (!Node->allPredesVisited(Visited))
     return;
 
@@ -205,8 +219,8 @@ void FusionTransformer::findToplogicalOrderRec(
   }
 }
 
-std::vector<DG_Node *> FusionTransformer::findToplogicalOrder(DependenceGraph *DepGraph) {
-
+std::vector<DG_Node *>
+FusionTransformer::findToplogicalOrder(DependenceGraph *DepGraph) {
   std::unordered_map<DG_Node *, bool> Visited;
   std::vector<DG_Node *> Order;
 

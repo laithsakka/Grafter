@@ -22,7 +22,10 @@
 class DependenceAnalyzer {
 
 public:
-  DependenceGraph *createDependnceGraph(vector<FunctionAnalyzer *> Traversals);
+  DependenceGraph *
+  createDependnceGraph(const vector<FunctionAnalyzer *> &Traversals);
+
+  DependenceGraph *createDependnceGraph(const vector<clang::CallExpr *> &Calls);
 
 private:
   /// Analyze and add dependences between nodes within the same traversal

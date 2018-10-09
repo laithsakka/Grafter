@@ -14,6 +14,7 @@
 
 #include "FunctionAnalyzer.h"
 #include <stdio.h>
+#include<stack>
 
 class StatementInfo {
 private:
@@ -30,7 +31,10 @@ private:
   bool IsCallStmt;
 
   /// The traversed child for call statmetnts
-  clang::FieldDecl *CalledChild;
+  clang::FieldDecl *CalledChild = nullptr;
+
+  /// Data associated with the function that is called
+  clang::FunctionDecl *CalledFunction = nullptr;
 
   /// Stores the accesses of the statments
   AccessPathContainer AccessPaths;
@@ -77,30 +81,28 @@ private:
 
   const FSM &getExtendedGlobWritesAutomata();
 
-  FSM *createExtendedAutomataPrefix(bool AllAccepted);
-
 public:
+  clang::FunctionDecl * getCalledFunction() const{
+    return CalledFunction;
+  }
+  /// Set the called function
+  void setCalledFunction(clang::FunctionDecl * CalledFunc){
+    CalledFunction = CalledFunc->getDefinition();
+  }
+
   /// Clang ast node that represents the statement
-  const clang::Stmt *Stmt;
+  clang::Stmt *Stmt;
 
   /// Return the statement id
-  int getStatementId() { 
-    return StatementId;
-  }
+  int getStatementId() { return StatementId; }
 
   /// Return true if the statement has return statement
-  bool hasReturn() {
-    return HasReturn; 
-  }
+  bool hasReturn() { return HasReturn; }
 
-  void setHasReturn(bool NewValue) {
-    HasReturn = NewValue;
-  }
+  void setHasReturn(bool NewValue) { HasReturn = NewValue; }
 
   /// Return true if the statement is recursive call
-  bool isCallStmt() { 
-    return IsCallStmt;
-  }
+  bool isCallStmt() { return IsCallStmt; }
 
   /// Return the called child of a call statement
   clang::FieldDecl *getCalledChild() {
@@ -113,16 +115,12 @@ public:
   }
 
   /// Return the enclosing function
-  FunctionAnalyzer *getEnclosingFunction() { 
-    return EnclosingFunction; 
-  }
+  FunctionAnalyzer *getEnclosingFunction() { return EnclosingFunction; }
 
   /// Return the access paths
-  AccessPathContainer &getAccessPaths() {
-    return AccessPaths; 
-  }
+  AccessPathContainer &getAccessPaths() { return AccessPaths; }
 
-  StatementInfo(const clang::Stmt *Stmt, FunctionAnalyzer *EnclosingFunction,
+  StatementInfo(clang::Stmt *Stmt, FunctionAnalyzer *EnclosingFunction,
                 bool IsCallStmt, int StatementId) {
     this->IsCallStmt = IsCallStmt;
     this->EnclosingFunction = EnclosingFunction;

@@ -59,7 +59,6 @@ int main(int argc, const char **argv) {
   for (auto &ASTUnit : ASTList) {
     auto *Ctx = &ASTUnit.get()->getASTContext();
     FusionCandidatesFinder CandidatesFinder(Ctx, &FunctionsInfo);
-    FusionTransformer Transformer(Ctx, &FunctionsInfo);
 
     // Find candidates
     CandidatesFinder.findCandidates();
@@ -67,12 +66,14 @@ int main(int argc, const char **argv) {
     // Perform fusion
     for (auto &Entry : CandidatesFinder.getFusionCandidates()) {
       auto *EnclosingFunctionDecl = Entry.first;
-      for (auto &Candidate : Entry.second)
-        Transformer.performFusion(EnclosingFunctionDecl, Candidate);
+      for (auto &Candidate : Entry.second) {
+        // Must be defined locally to avoid duplicate functions definitions
+        FusionTransformer Transformer(Ctx, &FunctionsInfo);
+        Transformer.performFusion(Candidate, true, EnclosingFunctionDecl);
+        // Commit source file changes
+        Transformer.overwriteChangedFiles();
+      }
     }
-
-    // Commit source file changes
-    Transformer.overwriteChangedFiles();
   }
   return 1;
 }

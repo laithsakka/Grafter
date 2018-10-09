@@ -15,7 +15,10 @@
 #define diff_CAP 4
 using namespace std;
 
-int TraversalSynthesizer::FunctionCounter = 0;
+std::map<clang::FunctionDecl *, int> TraversalSynthesizer::FunDeclToNameId =
+    std::map<clang::FunctionDecl *, int>();
+
+int TraversalSynthesizer::Count = 1;
 
 std::string toBinaryString(unsigned Input) {
   string Output;
@@ -28,20 +31,8 @@ std::string toBinaryString(unsigned Input) {
   return Output;
 }
 
-TraversalSynthesizer::TraversalSynthesizer(
-    const std::vector<clang::CallExpr *> &TraversalsCallExpressions,
-    const clang::FunctionDecl *EnclosingFunctionDecl,
-    clang::ASTContext *ASTContext, clang::Rewriter &Rewriter_,
-    std::vector<DG_Node *> &StatmentsTopologicalOrder)
-    : Rewriter(Rewriter_), StatmentsTopologicalOrder(StatmentsTopologicalOrder),
-      TraversalsCallExpressionsList(TraversalsCallExpressions) {
-
-  this->EnclosingFunctionDecl = EnclosingFunctionDecl;
-  this->ASTContext = ASTContext;
-}
-
 unsigned TraversalSynthesizer::getNumberOfParticipatingTraversals(
-    std::vector<bool> &ParticipatingTraversals) {
+    const std::vector<bool> &ParticipatingTraversals) const {
   unsigned Count = 0;
   for (bool Entry : ParticipatingTraversals) {
     if (Entry)
@@ -51,7 +42,7 @@ unsigned TraversalSynthesizer::getNumberOfParticipatingTraversals(
 }
 
 int TraversalSynthesizer::getFirstParticipatingTraversal(
-    std::vector<bool> &ParticipatingTraversals) {
+    const std::vector<bool> &ParticipatingTraversals) const {
   for (int i = 0; i < ParticipatingTraversals.size(); i++) {
     if (ParticipatingTraversals[i] == true) {
       return i;
@@ -60,171 +51,166 @@ int TraversalSynthesizer::getFirstParticipatingTraversal(
   return -1;
 }
 
-bool TraversalSynthesizer::isGenerated(vector<bool> &ParticipatingTraversals) {
-  string NewFunctionId = createName(ParticipatingTraversals);
+bool TraversalSynthesizer::isGenerated(
+    const vector<clang::CallExpr *> &ParticipatingTraversals) {
+  auto NewFunctionId = createName(ParticipatingTraversals);
   return SynthesizedFunctions.count(NewFunctionId);
 }
 
-std::string
-TraversalSynthesizer::createName(vector<bool> &ParticipatingTraversals) {
-  string Output = "_fuse_" + to_string(FunctionId) + "_";
+bool TraversalSynthesizer::isGenerated(
+    const vector<clang::FunctionDecl *> &ParticipatingTraversals) {
+  auto NewFunctionId = createName(ParticipatingTraversals);
+  return SynthesizedFunctions.count(NewFunctionId);
+}
 
-  for (int i = 0; i < ParticipatingTraversals.size(); i++) {
-    if (ParticipatingTraversals[i] == true)
-      Output += +"F" + std::to_string(i + 1);
+std::string TraversalSynthesizer::createName(
+    const std::vector<clang::CallExpr *> &ParticipatingTraversals) {
+
+  std::vector<clang::FunctionDecl *> Temp;
+  Temp.resize(ParticipatingTraversals.size());
+  transform(ParticipatingTraversals.begin(), ParticipatingTraversals.end(),
+            Temp.begin(), [&](clang::CallExpr *CallExpr) {
+              return dyn_cast<clang::FunctionDecl>(CallExpr->getCalleeDecl())
+                  ->getDefinition();
+            });
+
+  return createName(Temp);
+}
+
+std::string TraversalSynthesizer::createName(
+    const std::vector<clang::FunctionDecl *> &ParticipatingTraversals) {
+
+  std::string Output = string("_fuse_") + "_";
+
+  for (auto *FuncDecl : ParticipatingTraversals) {
+    FuncDecl = FuncDecl->getDefinition();
+    if (!FunDeclToNameId.count(FuncDecl))
+      FunDeclToNameId[FuncDecl] = Count++;
+
+    Output += +"F" + std::to_string(FunDeclToNameId[FuncDecl]);
   }
   return Output;
 }
 
+int TraversalSynthesizer::getFunctionId(clang::FunctionDecl *Decl) {
+  assert(FunDeclToNameId.count(Decl));
+
+  return FunDeclToNameId[Decl];
+}
+
 void TraversalSynthesizer::setBlockSubPart(
     string &Decls, std::string &BlockPart,
-    std::vector<bool> &ParticipatingTraversals, int BlockId_,
-    std::vector<vector<DG_Node *>> Statements) {
+    const std::vector<clang::FunctionDecl *> &ParticipatingTraversalsDecl,
+    const int BlockId,
+    std::unordered_map<clang::FunctionDecl *, vector<DG_Node *>> &Statements) {
 
   StatmentPrinter Printer;
-  for (int TraversalIndex = 0; TraversalIndex < ParticipatingTraversals.size();
-       TraversalIndex++) {
+  int TraversalIndex = -1;
+  for (auto *Decl : ParticipatingTraversalsDecl) {
+    TraversalIndex++;
 
-    if (ParticipatingTraversals[TraversalIndex] == false)
-      continue;
+    string NextLabel = "_label_B" + to_string(BlockId) + +"F" +
+                       to_string(TraversalIndex + 1) + "_Exit";
 
-    string FuncId = to_string(TraversalIndex + 1);
-    string BlockId = to_string(BlockId_);
-
-    string NextLabel = "_label_B" + BlockId + "F" + FuncId + "_Exit";
-    string Temp = "";
-
-    for (DG_Node *Statement : Statements[TraversalIndex]) {
+    string BlockBody = "";
+    for (DG_Node *Statement : Statements[Decl]) {
       if (Statement->getStatementInfo()->Stmt->getStmtClass() ==
           clang::Stmt::DeclStmtClass) {
-        Decls +=
-            "\t" +
-            Printer.printStmt(
-                Statement->getStatementInfo()->Stmt,
-                ASTContext->getSourceManager(),
-                TraversalsDeclarationsList[TraversalIndex]->getParamDecl(0),
-                NextLabel, TraversalIndex + 1) +
-            ";\n";
+        Decls += "\t" +
+                 Printer.printStmt(Statement->getStatementInfo()->Stmt,
+                                   ASTContext->getSourceManager(),
+                                   Decl->getParamDecl(0), NextLabel,
+                                   TraversalIndex) +
+                 ";\n";
 
       } else {
-        Temp += Printer.printStmt(
+        BlockBody += Printer.printStmt(
             Statement->getStatementInfo()->Stmt, ASTContext->getSourceManager(),
-            TraversalsDeclarationsList[TraversalIndex]->getParamDecl(0),
-            NextLabel, TraversalIndex + 1);
+            Decl->getParamDecl(0), NextLabel, TraversalIndex);
       }
     }
-    if (Temp.compare("") != 0) {
+    if (BlockBody.compare("") != 0) {
       BlockPart += "if (truncate_flags &" +
                    toBinaryString((1 << TraversalIndex)) + ") {\n";
-      BlockPart += Temp;
+      BlockPart += BlockBody;
       BlockPart += "}\n" + NextLabel + ":\n";
     }
   }
 }
 
 void TraversalSynthesizer::setCallPart(
-    std::string &CallPartText, std::vector<bool> &ParticipatingTraversals,
+    std::string &CallPartText,
+    const std::vector<clang::CallExpr *> &ParticipatingCallExpr,
+    const std::vector<clang::FunctionDecl *> &ParticipatingTraversalsDecl,
     DG_Node *CallNode, FusedTraversalWritebackInfo *WriteBackInfo) {
 
+  CallPartText = "";
   StatmentPrinter Printer;
-  std::unordered_map<int, const clang::CallExpr *> TraversalIdToCallExpr;
 
-  std::vector<bool> ParticipatingTraversalsForNextCall;
+  std::vector<DG_Node *> NextCallNodes;
+  if (CallNode->isMerged())
+    NextCallNodes = CallNode->getMergeInfo()->getCallsOrdered();
+  else
+    NextCallNodes.push_back(CallNode);
 
-  ParticipatingTraversalsForNextCall.resize(TraversalsDeclarationsList.size());
-
-  fill(ParticipatingTraversalsForNextCall.begin(),
-       ParticipatingTraversalsForNextCall.end(), false);
-
-  if (CallNode->isMerged()) {
-
-    for (auto It = CallNode->getMergeInfo()->MergedNodes.begin();
-         It != CallNode->getMergeInfo()->MergedNodes.end(); It++) {
-
-      if (ParticipatingTraversals[(*It)->getTraversalId()] == true) {
-        TraversalIdToCallExpr[(*It)->getTraversalId()] =
-            dyn_cast<clang::CallExpr>((*It)->getStatementInfo()->Stmt);
-        ParticipatingTraversalsForNextCall[(*It)->getTraversalId()] = true;
-      }
-    }
-
-  } else {
-    if (ParticipatingTraversals[CallNode->getTraversalId()] == true) {
-      TraversalIdToCallExpr[CallNode->getTraversalId()] =
-          dyn_cast<clang::CallExpr>(CallNode->getStatementInfo()->Stmt);
-
-      ParticipatingTraversalsForNextCall[CallNode->getTraversalId()] = true;
-    }
-  }
-  int ActiveCallsCount =
-      getNumberOfParticipatingTraversals(ParticipatingTraversalsForNextCall);
-
-  if (ActiveCallsCount == 0) {
-    CallPartText = "";
+  if (!NextCallNodes.size())
     return;
-  }
 
+  // The call should be executed iff one of at least of the participating nodes
+  // is active
   unsigned int ConditionBitMask = 0;
 
-  string CallConditionText = "if ( (truncate_flags & ";
-  for (int StatementIndex = 0;
-       StatementIndex < ParticipatingTraversalsForNextCall.size();
-       StatementIndex++) {
-    if (ParticipatingTraversalsForNextCall[StatementIndex] == false)
-      continue;
+  for (DG_Node *Node : NextCallNodes)
+    ConditionBitMask |=
+        (1 << Node->getTraversalId() /*should return the index*/);
 
-    ConditionBitMask |= (1 << StatementIndex);
-  }
-  CallConditionText += toBinaryString(ConditionBitMask) + ") )";
-  if (ActiveCallsCount == 1) {
+  string CallConditionText =
+      "if ( (truncate_flags & " + toBinaryString(ConditionBitMask) + ") )";
 
-    int TraversalId =
-        getFirstParticipatingTraversal(ParticipatingTraversalsForNextCall);
+  if (NextCallNodes.size() == 1) {
+    // call the original traversals
+
+    int CalledTraversalId = NextCallNodes[0]->getTraversalId();
     string NextCallName =
-        TraversalsDeclarationsList[TraversalId]->getNameAsString();
+        ParticipatingTraversalsDecl[CalledTraversalId]->getNameAsString();
     CallPartText += CallConditionText + "{\n\t";
+
+    auto FirstArgument =
+        dyn_cast<clang::CallExpr>(CallNode->getStatementInfo()->Stmt)
+            ->getArg(0);
+
+    auto *RootDecl = CallNode->getStatementInfo()
+                         ->getEnclosingFunction()
+                         ->getFunctionDecl()
+                         ->getParamDecl(0);
     CallPartText +=
-        NextCallName + "(" + "_r->" +
-        CallNode->getStatementInfo()->getCalledChild()->getNameAsString();
+        NextCallName + "(" +
+        Printer.printStmt(FirstArgument, ASTContext->getSourceManager(),
+                          RootDecl, "", -1);
 
-    auto *callExpr = (TraversalIdToCallExpr[TraversalId]);
+    auto *CallExpr =
+        dyn_cast<clang::CallExpr>(CallNode[0].getStatementInfo()->Stmt);
 
-    string NextCallParamsText;
-    for (int ArgIndex = 1; ArgIndex < callExpr->getNumArgs(); ArgIndex++) {
-
-      NextCallParamsText +=
-          ", " + Printer.printStmt(
-                     callExpr->getArg(ArgIndex), ASTContext->getSourceManager(),
-                     TraversalsDeclarationsList[TraversalId]->getParamDecl(0),
-                     "dummy", TraversalId + 1);
+    for (int ArgIndex = 1; ArgIndex < CallExpr->getNumArgs(); ArgIndex++) {
+      CallPartText +=
+          ", " + Printer.printStmt(CallExpr->getArg(ArgIndex),
+                                   ASTContext->getSourceManager(), RootDecl,
+                                   "not used", CalledTraversalId /*not used*/);
     }
-    CallPartText += NextCallParamsText;
     CallPartText += ");";
     CallPartText += "\n}";
     return;
   }
 
-  string NextCallName;
-  bool CallingSame = false;
-  if (ActiveCallsCount > 1) {
-    int CurrentActivaCallCount =
-        getNumberOfParticipatingTraversals(ParticipatingTraversals);
+  std::vector<clang::CallExpr *> NextCallCallExpression;
+  for (auto *Node : NextCallNodes)
+    NextCallCallExpression.push_back(
+        dyn_cast<clang::CallExpr>(Node->getStatementInfo()->Stmt));
 
-    if (/*CurrentActivaCallCount > FUSE_CAP */ true) {
-      //  if( (CurrentActivaCallCount  -  ActiveCallsCount) > diff_CAP ){
-      NextCallName = createName(ParticipatingTraversalsForNextCall);
-      if (CurrentActivaCallCount == 2)
-        assert((CurrentActivaCallCount == ActiveCallsCount) && "why!");
-      if (this->isGenerated(ParticipatingTraversalsForNextCall) == false) {
-        this->generateWriteBackInfo(ParticipatingTraversalsForNextCall,
-                                    TraversalIdToCallExpr);
-      }
-    } else {
-      // assert(false);
-      NextCallName = WriteBackInfo->FunctionName;
-      CallingSame = true;
-    }
-  }
+  std::string NextCallName = createName(NextCallCallExpression);
+
+  if (!isGenerated(NextCallCallExpression))
+    Transformer->performFusion(NextCallCallExpression, false, nullptr);
 
   CallPartText += CallConditionText + "{\n\t";
 
@@ -242,259 +228,187 @@ void TraversalSynthesizer::setCallPart(
       Printer.printStmt(FirstArgument, ASTContext->getSourceManager(), RootDecl,
                         "", -1);
 
-  if (CallingSame) {
-    string NextCallParamsText;
-    for (int StatementIndex = 0;
-         StatementIndex < ParticipatingTraversals.size(); StatementIndex++) {
+  string NextCallParamsText;
+  for (auto *CallNode : NextCallNodes) {
+    auto *CallExpr =
+        dyn_cast<clang::CallExpr>(CallNode->getStatementInfo()->Stmt);
+    for (int ArgIdx = 1; ArgIdx < CallExpr->getNumArgs(); ArgIdx++) {
 
-      if (ParticipatingTraversals[StatementIndex] == false)
-        continue;
-
-      const clang::CallExpr *callExpr =
-          ParticipatingTraversalsForNextCall[StatementIndex] == true
-              ? TraversalIdToCallExpr[StatementIndex]
-              : WriteBackInfo->ParticipatingTraversalsAndCalls[StatementIndex];
-
-      for (int h = 1; h < callExpr->getNumArgs(); h++) {
-
-        NextCallParamsText +=
-            ", " +
-            Printer.printStmt(
-                callExpr->getArg(h), ASTContext->getSourceManager(),
-                TraversalsDeclarationsList[StatementIndex]->getParamDecl(0),
-                "dummy", StatementIndex + 1);
-      }
+      NextCallParamsText +=
+          ", " + Printer.printStmt(CallExpr->getArg(ArgIdx),
+                                   ASTContext->getSourceManager(),
+                                   RootDecl /* not used*/, "not-used",
+                                   CallNode->getTraversalId() /*not used*/);
     }
-
-    NextCallParamsText +=
-        ",truncate_flags & " + toBinaryString(ConditionBitMask);
-    CallPartText += NextCallParamsText;
-    CallPartText += ");";
-    CallPartText += "\n}";
-    return;
-
-  } else {
-    string NextCallParamsText;
-    for (int StatementIndex = 0;
-         StatementIndex < ParticipatingTraversalsForNextCall.size();
-         StatementIndex++) {
-
-      if (ParticipatingTraversalsForNextCall[StatementIndex] == false)
-        continue;
-
-      auto *callExpr = (TraversalIdToCallExpr[StatementIndex]);
-
-      for (int h = 1; h < callExpr->getNumArgs(); h++) {
-
-        NextCallParamsText +=
-            ", " +
-            Printer.printStmt(
-                callExpr->getArg(h), ASTContext->getSourceManager(),
-                TraversalsDeclarationsList[StatementIndex]->getParamDecl(0),
-                "dummy", StatementIndex + 1);
-      }
-    }
-
-    NextCallParamsText +=
-        ",truncate_flags & " + toBinaryString(ConditionBitMask);
-    CallPartText += NextCallParamsText;
-    CallPartText += ");";
-    CallPartText += "\n}";
-    return;
   }
+
+  NextCallParamsText += ",truncate_flags & " + toBinaryString(ConditionBitMask);
+  CallPartText += NextCallParamsText;
+  CallPartText += ");";
+  CallPartText += "\n}";
+  return;
+}
+
+clang::QualType
+getTraversedType(const std::vector<clang::CallExpr *> &ParticipatingCalls) {
+  return ParticipatingCalls[0]->getArg(0)->getType();
 }
 
 void TraversalSynthesizer::generateWriteBackInfo(
-    vector<bool> &ParticipatingTraversals,
-    unordered_map<int, const clang::CallExpr *>
-        ParticipatingTraversalsAndCalls_) {
+    const std::vector<clang::CallExpr *> &ParticipatingCalls,
+    const std::vector<DG_Node *> &ToplogicalOrder) {
 
   StatmentPrinter Printer;
 
   // generate the name of the new function
-  string idName = createName(ParticipatingTraversals);
+  string idName = createName(ParticipatingCalls);
 
   // check if already generated and assert on It
-  assert(!isGenerated(ParticipatingTraversals));
+  assert(!isGenerated(ParticipatingCalls));
 
   // create writeback info
-  FusedTraversalWritebackInfo *writeBackInfo = new FusedTraversalWritebackInfo;
-  SynthesizedFunctions[idName] = writeBackInfo;
+  FusedTraversalWritebackInfo *WriteBackInfo =
+      new FusedTraversalWritebackInfo();
 
-  writeBackInfo->ParticipatingTraversalsAndCalls =
-      ParticipatingTraversalsAndCalls_;
-  writeBackInfo->FunctionName = idName;
+  SynthesizedFunctions[idName] = WriteBackInfo;
+
+  // what is this lol!
+  WriteBackInfo->ParticipatingCalls = ParticipatingCalls;
+  WriteBackInfo->FunctionName = idName;
 
   // create forward declaration
-  writeBackInfo->ForwardDeclaration = "void " + idName + "(";
+  WriteBackInfo->ForwardDeclaration = "void " + idName + "(";
 
-  writeBackInfo->ForwardDeclaration +=
-      string(this->TraversalsDeclarationsList[0]
-                 ->getParamDecl(0)
-                 ->getType()
-                 .getAsString()) +
-      " _r";
+  // what is this doing lol(its adding the type of the traversed node)
+  // this should be the bottom of the latic
+  WriteBackInfo->ForwardDeclaration +=
+      string(getTraversedType(ParticipatingCalls).getAsString()) + " _r";
+
+  vector<clang::FunctionDecl *> TraversalsDeclarationsList;
+  TraversalsDeclarationsList.resize(ParticipatingCalls.size());
+  transform(ParticipatingCalls.begin(), ParticipatingCalls.end(),
+            TraversalsDeclarationsList.begin(), [](clang::CallExpr *CallExpr) {
+              return dyn_cast<clang::FunctionDecl>(CallExpr->getCalleeDecl())
+                  ->getDefinition();
+            });
 
   // append the arguments of each method and rename locals  by adding _fx_ only
   // participating traversals
-  for (int i = 0; i < TraversalsDeclarationsList.size(); i++) {
+  int Idx = -1;
+  for (auto *Decl : TraversalsDeclarationsList) {
+    bool First = true;
+    Idx++;
+    for (auto *Param : Decl->parameters()) {
+      if (First) {
+        First = false;
+        continue;
+      }
 
-    if (ParticipatingTraversals[i] == false)
-      continue;
-
-    for (int j = 1; j < TraversalsDeclarationsList[i]->parameters().size();
-         j++) {
-      writeBackInfo->ForwardDeclaration += "," +
-                                           string(TraversalsDeclarationsList[i]
-                                                      ->parameters()[j]
-                                                      ->getType()
-                                                      .getAsString()) +
-                                           " _f" + to_string(i + 1) + "_" +
-                                           TraversalsDeclarationsList[i]
-                                               ->parameters()[j]
-                                               ->getDeclName()
-                                               .getAsString();
+      WriteBackInfo->ForwardDeclaration +=
+          "," + string(Param->getType().getAsString()) + " _f" +
+          to_string(Idx) + "_" + Param->getDeclName().getAsString();
     }
   }
 
-  writeBackInfo->ForwardDeclaration += ",unsigned int truncate_flags)";
+  WriteBackInfo->ForwardDeclaration += ",unsigned int truncate_flags)";
 
-  // build the Body of the traversal
+  // Stores all local declarations in here
+  string Decls;
 
-  // store all top level declarations here (seen across blocks , calls only
-  // occure on top level (relative to method Body !!)
-  string decls;
+  unordered_map<FunctionDecl *, vector<DG_Node *>> StamentsOderedByTId;
 
-  vector<vector<DG_Node *>> stamentsOderedByTId;
-  stamentsOderedByTId.resize(TraversalsDeclarationsList.size());
+  int CurBlockId = 0;
 
-  int blockId_ = 0;
+  for (auto *DG_Node : ToplogicalOrder) {
 
-  for (int i = 0; i < StatmentsTopologicalOrder.size(); i++) {
-
-    if (StatmentsTopologicalOrder[i]->getStatementInfo()->isCallStmt()) {
-      blockId_++;
+    if (DG_Node->getStatementInfo()->isCallStmt()) {
+      CurBlockId++;
       // the block part
-      writeBackInfo->Body += "//block " + to_string(blockId_) + "\n";
+      WriteBackInfo->Body += "//block " + to_string(CurBlockId) + "\n";
 
       string blockSubPart = "";
-      this->setBlockSubPart(decls, blockSubPart, ParticipatingTraversals,
-                            blockId_, stamentsOderedByTId);
-      writeBackInfo->Body += blockSubPart;
+      setBlockSubPart(Decls, blockSubPart, TraversalsDeclarationsList,
+                      CurBlockId, StamentsOderedByTId);
+      WriteBackInfo->Body += blockSubPart;
 
       //  call part
       string CallPartText = "";
-      this->setCallPart(CallPartText, ParticipatingTraversals,
-                        StatmentsTopologicalOrder[i], writeBackInfo);
+      this->setCallPart(CallPartText, ParticipatingCalls,
+                        TraversalsDeclarationsList, DG_Node, WriteBackInfo);
       // callect call expression (only for participating traversals)
-      writeBackInfo->Body += CallPartText;
+      WriteBackInfo->Body += CallPartText;
 
-      stamentsOderedByTId.clear();
-      stamentsOderedByTId.resize(TraversalsDeclarationsList.size());
-
+      StamentsOderedByTId.clear();
     } else {
-      if (ParticipatingTraversals[StatmentsTopologicalOrder[i]
-                                      ->getTraversalId()] == false)
-        continue;
-      else {
-        stamentsOderedByTId[StatmentsTopologicalOrder[i]->getTraversalId()]
-            .push_back(StatmentsTopologicalOrder[i]);
-      }
+
+      StamentsOderedByTId[TraversalsDeclarationsList[DG_Node->getTraversalId()]]
+          .push_back(DG_Node);
     }
   }
-
-  // last block ( no read is needed)
-  blockId_++;
-  writeBackInfo->Body += "//block " + to_string(blockId_) + "\n";
+  CurBlockId++;
+  WriteBackInfo->Body += "//block " + to_string(CurBlockId) + "\n";
 
   string blockSubPart = "";
-  this->setBlockSubPart(decls, blockSubPart, ParticipatingTraversals, blockId_,
-                        stamentsOderedByTId);
-  writeBackInfo->Body += blockSubPart;
+  this->setBlockSubPart(Decls, blockSubPart, TraversalsDeclarationsList,
+                        CurBlockId, StamentsOderedByTId);
 
-  string CallPartText = "";
-  CallPartText += "return ;\n";
+  std::string CallPartText = "return ;\n";
   // callect call expression (only for participating traversals)
-  writeBackInfo->Body += CallPartText;
-  writeBackInfo->Body = decls + writeBackInfo->Body;
+  WriteBackInfo->Body += CallPartText;
+  WriteBackInfo->Body = Decls + WriteBackInfo->Body;
 
   string fullFun = "//****** this fused method is generated by PLCL\n " +
-                   writeBackInfo->ForwardDeclaration + "{\n" +
-                   "//first level declarations\n" + decls + "\n//Body\n" +
-                   writeBackInfo->Body + "\n}\n\n";
+                   WriteBackInfo->ForwardDeclaration + "{\n" +
+                   "//first level declarations\n" + "\n//Body\n" +
+                   WriteBackInfo->Body + "\n}\n\n";
 }
 
-void TraversalSynthesizer::writeFusedVersion() {
-  // generate decl list
-  TraversalsDeclarationsList.clear();
-  for (int i = 0; i < TraversalsCallExpressionsList.size(); i++) {
-    TraversalsDeclarationsList.push_back(
-        TraversalsCallExpressionsList[i]->getCalleeDecl()->getAsFunction());
-  }
-  // set fuse counter
-  TraversalSynthesizer::FunctionCounter++;
-  FunctionId = FunctionCounter;
+void TraversalSynthesizer::WriteUpdates(
+    const std::vector<clang::CallExpr *> CallsExpressions,
+    const clang::FunctionDecl *EnclosingFunctionDecl) {
 
-  // 1-comment all old calls
-  for (int i = 0; i < TraversalsCallExpressionsList.size(); i++) {
-    Rewriter.InsertText(TraversalsCallExpressionsList[i]->getExprLoc(), "//");
-  }
-  // build the wholse set of new traversals
+  for (auto *CallExpr : CallsExpressions)
+    Rewriter.InsertText(CallExpr->getExprLoc(), "//");
 
-  std::vector<bool> participatingTraversalsStart;
-  std::unordered_map<int, const clang::CallExpr *> TraversalIdToCallExpr;
-  for (int i = 0; i < this->TraversalsCallExpressionsList.size(); i++) {
-    TraversalIdToCallExpr[i] = TraversalsCallExpressionsList[i];
-  }
-  participatingTraversalsStart.resize(TraversalsCallExpressionsList.size());
-  fill(participatingTraversalsStart.begin(), participatingTraversalsStart.end(),
-       true);
-
-  this->generateWriteBackInfo(participatingTraversalsStart,
-                              TraversalIdToCallExpr);
-
+  // add forward declarations
   for (unordered_map<string, FusedTraversalWritebackInfo *>::iterator It =
            SynthesizedFunctions.begin();
        It != SynthesizedFunctions.end(); It++) {
-    Rewriter.InsertText(this->EnclosingFunctionDecl->getLocStart(),
+    Rewriter.InsertText(EnclosingFunctionDecl->getLocStart(),
                         (It->second->ForwardDeclaration + "\n{\n" +
                          It->second->Body + "\n};\n"));
   }
 
-  // add the new call]
   StatmentPrinter Printer;
   // 2-build the new function call and add It.
-  string newCall =
-      createName(participatingTraversalsStart) + "(" +
-      Printer.stmtTostr(TraversalsCallExpressionsList[0]->getArg(0),
-                        ASTContext->getSourceManager());
+
+  string NewCall = createName(CallsExpressions) + "(" +
+                   Printer.stmtTostr(CallsExpressions[0]->getArg(0),
+                                     ASTContext->getSourceManager());
 
   // 3-append arguments of all methods in the same order and build defualt
   // params
 
-  for (int i = 0; i < TraversalsCallExpressionsList.size(); i++) {
+  for (auto *CallExpr : CallsExpressions) {
 
-    for (int j = 1; j < TraversalsCallExpressionsList[i]->getNumArgs(); j++) {
-
-      newCall +=
-          "," + Printer.stmtTostr(TraversalsCallExpressionsList[i]->getArg(j),
-                                  ASTContext->getSourceManager());
+    for (int ArgIdx = 1; ArgIdx < CallExpr->getNumArgs(); ArgIdx++) {
+      NewCall += "," + Printer.stmtTostr(CallExpr->getArg(ArgIdx),
+                                         ASTContext->getSourceManager());
     }
   }
-  // add doFunX for each traversals
+
+  // add initial truncate flags
   unsigned int x = 0;
-  for (int i = 0; i < TraversalsCallExpressionsList.size(); i++) {
+  for (int i = 0; i < CallsExpressions.size(); i++)
     x |= (1 << i);
-  }
-  newCall += "," + toBinaryString(x) + ");";
+
+  NewCall += "," + toBinaryString(x) + ");";
   Rewriter.InsertTextAfter(
       Lexer::findLocationAfterToken(
-          TraversalsCallExpressionsList[TraversalsCallExpressionsList.size() -
-                                        1]
-              ->getLocEnd(),
+          CallsExpressions[CallsExpressions.size() - 1]->getLocEnd(),
           tok::TokenKind::semi, ASTContext->getSourceManager(),
           ASTContext->getLangOpts(), true),
-      "\n\t//added by fuse transformer \n\t" + newCall + "\n");
+      "\n\t//added by fuse transformer \n\t" + NewCall + "\n");
 }
 
 void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
@@ -548,7 +462,7 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
     if (DeclRefExpr->getDecl() == this->RootNodeDecl)
       Output += "_r";
     else if (!DeclRefExpr->getDecl()->isDefinedOutsideFunctionOrMethod())
-      Output += "_f" + to_string(this->FunctionId) + "_" +
+      Output += "_f" + to_string(this->TraversalIndex) + "_" +
                 DeclRefExpr->getDecl()->getNameAsString();
     else
       Output += stmtTostr(Stmt, SM);
@@ -603,7 +517,7 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
   }
   case Stmt::ReturnStmtClass:
     Output += "\t truncate_flags&=" +
-              toBinaryString(~(unsigned int)(1 << (FunctionId - 1))) +
+              toBinaryString(~(unsigned int)(1 << (TraversalIndex))) +
               "; goto " + NextLabel + " ;\n";
 
     break;
@@ -616,8 +530,8 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
       auto *VarDecl = dyn_cast<clang::VarDecl>(Decl);
       assert(VarDecl != nullptr);
       Output += "\t" + VarDecl->getType().getAsString() + " " + "_f" +
-                to_string(this->FunctionId) + "_" + VarDecl->getNameAsString() +
-                " ";
+                to_string(this->TraversalIndex) + "_" +
+                VarDecl->getNameAsString() + " ";
       if (VarDecl->getInit() != nullptr) {
         Output += "=";
         print_handleStmt(VarDecl->getInit(), SM);
@@ -659,11 +573,11 @@ void StatmentPrinter::print_handleStmt(const clang::Stmt *Stmt,
     Output += ")";
     break;
   }
-  case Stmt::CXXDeleteExprClass:{
-    auto * DeleteArgument = dyn_cast<CXXDeleteExpr>(Stmt)->getArgument();
-    Output+= "delete ";
+  case Stmt::CXXDeleteExprClass: {
+    auto *DeleteArgument = dyn_cast<CXXDeleteExpr>(Stmt)->getArgument();
+    Output += "delete ";
     print_handleStmt(DeleteArgument, SM);
-    Output+= ";";
+    Output += ";";
     break;
   }
   default:

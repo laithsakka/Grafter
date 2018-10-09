@@ -1,4 +1,4 @@
-//===--- FunctionAnalyzer.h -------------------------------------------------===//
+//===--- FunctionAnalyzer.h -----------------------------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -13,6 +13,7 @@
 #define TREE_FUSER_FUNCTION_ANALYZER
 
 #include "AccessPath.h"
+#include "FunctionsFinder.h"
 #include "LLVMDependencies.h"
 #include "RecordAnalyzer.h"
 #include "StatementInfo.h"
@@ -43,8 +44,8 @@ private:
 
   int NestedIfDepth = 0;
 
-  /// List of called recursivly visited children in original order
-  std::vector<clang::FieldDecl *> CalledChildrenOrderedList;
+  /// List of called recursivly traversed children in original order
+  std::vector<pair<clang::FunctionDecl *, clang::FieldDecl *>> TraversingCalls;
 
   /// Store the result of the semantics check
   bool SemanticsSatasified = true;
@@ -52,7 +53,7 @@ private:
   /// Add an access path to the currently traversed statement information
   void addAccessPath(AccessPath *AccessPath, bool IsRead);
 
-  /// Add an access path to a node that is deleted or assigned to a new node 
+  /// Add an access path to a node that is deleted or assigned to a new node
   void addReplacedNodeAccessPath(AccessPath *AccessPath);
 
   /// Perform checks that confirms that the body of the function with tree-fuser
@@ -88,9 +89,7 @@ public:
   FunctionAnalyzer(clang::FunctionDecl *FuncDeclaration);
 
   /// Return the top level statements in the body of the function
-  std::vector<StatementInfo *> &getStatements() {
-    return Statements;
-  }
+  std::vector<StatementInfo *> &getStatements() { return Statements; }
 
   /// Dump information about the analyzed function
   void dump();
@@ -103,7 +102,9 @@ public:
 
   bool isValidFuse() const { return SemanticsSatasified; }
 
-  int getNumberOfRecursiveCalls() const;
+  void setValidFuse(bool IsValid) { SemanticsSatasified = IsValid; }
+
+  int getNumberOfTraversingCalls() const;
 
   clang::FunctionDecl *getFunctionDecl() const;
 
@@ -111,10 +112,12 @@ public:
 
   const clang::RecordDecl *getTraversedTreeTypeDecl() const;
 
-  const vector<clang::FieldDecl *> &getCalledChildrenList() const;
+  const vector<pair<clang::FunctionDecl *, clang::FieldDecl *>> &
+  getTraversingCalls() const;
 
-  void addCalledChildList(clang::FieldDecl *childDecl) {
-    CalledChildrenOrderedList.push_back(childDecl);
+  void addTraversingCall(clang::FunctionDecl *CalledFunction,
+                         clang::FieldDecl *CalledChild) {
+    TraversingCalls.push_back(make_pair(CalledFunction, CalledChild));
   }
 
   ~FunctionAnalyzer();

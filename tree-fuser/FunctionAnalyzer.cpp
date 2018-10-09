@@ -42,8 +42,8 @@ void FunctionAnalyzer::dump() {
   }
 }
 
-int FunctionAnalyzer::getNumberOfRecursiveCalls() const {
-  return CalledChildrenOrderedList.size();
+int FunctionAnalyzer::getNumberOfTraversingCalls() const {
+  return TraversingCalls.size();
 }
 
 clang::FunctionDecl *FunctionAnalyzer::getFunctionDecl() const {
@@ -58,9 +58,9 @@ const clang::RecordDecl *FunctionAnalyzer::getTraversedTreeTypeDecl() const {
   return TraversedTreeTypeDecl;
 }
 
-const vector<clang::FieldDecl *> &
-FunctionAnalyzer::getCalledChildrenList() const {
-  return CalledChildrenOrderedList;
+const vector<pair<clang::FunctionDecl *, clang::FieldDecl *>> &
+FunctionAnalyzer::getTraversingCalls() const {
+  return TraversingCalls;
 }
 
 FunctionAnalyzer::FunctionAnalyzer(clang::FunctionDecl *FuncDeclaration) {
@@ -70,10 +70,11 @@ FunctionAnalyzer::FunctionAnalyzer(clang::FunctionDecl *FuncDeclaration) {
 }
 
 bool FunctionAnalyzer::isInCalledChildList(clang::FieldDecl *ChildDecl) const {
-  for (auto *CalledChild : CalledChildrenOrderedList)
-    if (ChildDecl == CalledChild)
+  for (auto Call : TraversingCalls) {
+    clang::FieldDecl *CalledChildDecl = Call.second;
+    if (ChildDecl == CalledChildDecl)
       return true;
-
+  }
   return false;
 }
 
@@ -282,14 +283,14 @@ bool FunctionAnalyzer::checkFuseSema() {
     }
   }
 
-  // Must be a recursive function
+  // Analyze top level traversing calls
   for (auto *Stmt : FuncDeclNode->getBody()->children()) {
 
     if (Stmt->getStmtClass() != clang::Stmt::CallExprClass)
       continue;
 
     auto *Call = dyn_cast<clang::CallExpr>(Stmt);
-    if (Call->getCalleeDecl() != FuncDeclNode) {
+    if (!hasFuseAnnotation(Call->getCalleeDecl()->getAsFunction())) {
       if (!hasStrictAccessAnnotation(Call->getCalleeDecl())) {
         Logger::getStaticLogger().logError(
             "fuse methods body not allowed to have function calls");
@@ -297,7 +298,7 @@ bool FunctionAnalyzer::checkFuseSema() {
       }
     }
 
-    if (Call->getCalleeDecl() == FuncDeclNode) {
+    if (hasFuseAnnotation(Call->getCalleeDecl()->getAsFunction())) {
       AccessPath CalledChildAccessPath(Call->getArg(0),
                                        nullptr); // dummmy access path
 
@@ -321,15 +322,12 @@ bool FunctionAnalyzer::checkFuseSema() {
           CalledChildAccessPath.SplittedAccessPath[1].second);
       assert(ChildDecl != nullptr);
 
-      if (!isInCalledChildList(ChildDecl))
-        addCalledChildList(ChildDecl);
+      addTraversingCall(Call->getCalleeDecl()->getAsFunction()->getDefinition(),
+                        ChildDecl);
     }
   }
 
-  if (this->getNumberOfRecursiveCalls() == 0) {
-    Logger::getStaticLogger().logError("fuse method must have recursive calls");
-    return false;
-  }
+
   assert(FuncDeclNode->getBody()->IgnoreImplicit()->getStmtClass() ==
          clang::Stmt::CompoundStmtClass);
 
@@ -468,13 +466,13 @@ bool FunctionAnalyzer::collectAccessPath_VisitBinaryOperator(
 }
 
 bool FunctionAnalyzer::collectAccessPath_VisitCallExpr(clang::CallExpr *Expr) {
-  if (FuncDeclNode != Expr->getCalleeDecl()) {
-
+  if (!hasFuseAnnotation(Expr->getCalleeDecl()->getAsFunction())) {
+    
     if (!hasStrictAccessAnnotation(Expr->getCalleeDecl())) {
       Logger::getStaticLogger().logError(
           "FunctionAnalyzer::collectAccessPath_VisitCallExpr:  this check must "
           "be removed from here , this is not the place for these checks "
-          "Error1 in VisitCallExpr "); //?? why
+          "Error1 in VisitCallExpr ");
       return false;
     }
 
@@ -503,9 +501,12 @@ bool FunctionAnalyzer::collectAccessPath_VisitCallExpr(clang::CallExpr *Expr) {
 
       addAccessPath(NewAccessPath, IsWrite);
     }
+    return true;
   }
 
-  if (FuncDeclNode == Expr->getCalleeDecl() && NestedIfDepth != 0) {
+  // Handle calls to functions that have fuse annotations (tree traversals)
+  if (hasFuseAnnotation(Expr->getCalleeDecl()->getAsFunction()) &&
+      NestedIfDepth != 0) {
     Logger::getStaticLogger().logError(
         "FunctionAnalyzer::collectAccessPath_VisitCallExpr: not allowed to "
         "have conditioned recursive call ");
@@ -547,20 +548,26 @@ bool FunctionAnalyzer::collectAccessPath_VisitCompoundStmt(
     // then we are in the main body becouse we are not inside and if statement
     ChildStmt = ChildStmt->IgnoreImplicit();
     if (NestedIfDepth == 0) {
-
-      bool IsRecursiveCall =
+      bool isTraversingCall =
           ChildStmt->getStmtClass() == clang::Stmt::CallExprClass &&
-          dyn_cast<clang::CallExpr>(ChildStmt)->getCalleeDecl() == FuncDeclNode;
+          hasFuseAnnotation(dyn_cast<clang::CallExpr>(ChildStmt)
+                                ->getCalleeDecl()
+                                ->getAsFunction());
 
-      CurrStatementInfo = new StatementInfo(ChildStmt, this, IsRecursiveCall,
+      CurrStatementInfo = new StatementInfo(ChildStmt, this, isTraversingCall,
                                             getStatements().size());
-      this->getStatements().push_back(CurrStatementInfo);
+      Statements.push_back(CurrStatementInfo);
 
-      if (IsRecursiveCall) {
+      if (isTraversingCall) {
         AccessPath Arg0((dyn_cast<clang::CallExpr>(ChildStmt))->getArg(0),
                         nullptr); // dummmy access path
         CurrStatementInfo->setCalledChild(
             dyn_cast<clang::FieldDecl>(Arg0.SplittedAccessPath[1].second));
+        auto *CalleFuncDecl = dyn_cast<clang::CallExpr>(ChildStmt)
+                                  ->getCalleeDecl()
+                                  ->getAsFunction();
+
+        CurrStatementInfo->setCalledFunction(CalleFuncDecl);
       }
     }
 
