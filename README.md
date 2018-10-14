@@ -38,7 +38,7 @@ Proceed to a normal LLVM build using a compiler with C++11 support (for GCC use 
 
 > ninja or ninja tree-fuser
 
-tree-fuser will be available under bin/. Add this directory to your path to ensure the rest of the commands in this tutorial work.
+tree-fuser will be available under ./bin/ Add this directory to your path to ensure the rest of the commands in this tutorial work.
 
 
 # USAGE
