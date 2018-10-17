@@ -41,9 +41,11 @@ tree-fuser will be available under ./bin/ Add this directory to your path to ens
 
 
 ### TreeFuser2
-Insrtructions for building TreeFuser2 is same as posted above, except that you need to make sure that you have OpenFST library installed in the system. http://www.openfst.org/twiki/bin/view/FST/WebHome 
-and 
-update tree-fuser/CMakeLists.txt by adding the path to OpenFST library to target_link_libraries
+Insrtructions for building TreeFuser2 is same as posted above, except:
+
+(1) Make sure that you have OpenFST library installed in the system. http://www.openfst.org/twiki/bin/view/FST/WebHome 
+
+(2) Update tree-fuser/CMakeLists.txt by adding the path to OpenFST library to target_link_libraries
 by defualt it will try to link  /usr/local/lib/libfst.13.dylib .
 
 # Usage
