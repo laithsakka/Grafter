@@ -23,8 +23,7 @@ Download the folder tree-fuser from the repo and put inside llvm/tools/clang/too
 
 > cd ..
 
- **Add the following line to llvm/tools/clang/tools/CMakeLists.txt 
- "add_clang_subdirectory(tree-fuser)" **
+**Add the following line to llvm/tools/clang/tools/CMakeLists.txt "add_clang_subdirectory(tree-fuser)" **
 
 Proceed to a normal LLVM build using a compiler with C++11 support (for GCC use version 4.9 or later):
 
