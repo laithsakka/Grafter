@@ -42,7 +42,7 @@ tree-fuser will be available under ./bin/ Add this directory to your path to ens
 
 
 ## TreeFuser2
-Insrtructions for building TreeFuser2 is same as posted above, except you need to make sure that you have OpenFST library installed int the system. http://www.openfst.org/twiki/bin/view/FST/WebHome 
+Insrtructions for building TreeFuser2 is same as posted above, except that you need to make sure that you have OpenFST library installed in the system. http://www.openfst.org/twiki/bin/view/FST/WebHome 
 # Usage
 
 
