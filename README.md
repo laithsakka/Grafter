@@ -50,6 +50,9 @@ by defualt it will try to link  /usr/local/lib/libfst.13.dylib .
 
 # Usage
 This part considers that the user is using TreeFuser2.
+you can run tree-fuser simply as tree-fuser file.cpp --
+
+TreeFuser will look for sequqnce of traversals that traverse the same structure and try to fuse them, It will update the files, make sure to operate on a copy of the files or create a backup.
 
 ## Language 
 TreeFuser operates on code written in subset of C++ language, the code can coexists with other general C++ code without problems.
