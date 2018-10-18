@@ -12,7 +12,7 @@ TreeFuser2 is an ongoing extention for TreeFuser that is aiming to mainly add th
 
 # INSTALLATION
 
-Treefuser uses Clang libraries and by design it is built as one of Clang tools. The build process is not much different from a regular Clang build. The following instructions assumes that you are running under Linux.
+Treefuser uses Clang libraries and by design it is built as one of Clang tools. The build process is not much different from a regular Clang build. The following instructions assumes that you are running under Linux (works for mac)
 
 ### Prerequisite 
 Insrtructions for building TreeFuser2 is same as posted above, except:
