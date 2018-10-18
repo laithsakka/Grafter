@@ -117,10 +117,16 @@ bool FunctionAnalyzer::collectAccessPath_handleStmt(clang::Stmt *Stmt) {
   case clang::Stmt::DeclStmtClass:
     return collectAccessPath_VisitDeclsStmt(dyn_cast<clang::DeclStmt>(Stmt));
 
-  case clang::Stmt::CXXMemberCallExprClass:
-    return collectAccessPath_VisitCXXMemberCallExpr(
-        dyn_cast<clang::CXXMemberCallExpr>(Stmt));
-
+  case clang::Stmt::CXXMemberCallExprClass: {
+    auto *CallExpr = dyn_cast<clang::CallExpr>(Stmt);
+    if (hasFuseAnnotation(
+            dyn_cast<clang::FunctionDecl>(CallExpr->getCalleeDecl()))) {
+      return collectAccessPath_VisitCallExpr(CallExpr);
+    } else {
+      return collectAccessPath_VisitCXXMemberCallExpr(
+          dyn_cast<clang::CXXMemberCallExpr>(Stmt));
+    }
+  }
   case clang::Stmt::CXXDeleteExprClass:
     return collectAccessPath_VisitCXXDeleteExpr(
         dyn_cast<clang::CXXDeleteExpr>(Stmt));
@@ -142,9 +148,8 @@ bool FunctionAnalyzer::collectAccessPath_VisitCXXMemberCallExpr(
   auto *CxxMemberCall = dyn_cast<clang::CXXMemberCallExpr>(Expr);
 
   if (!hasStrictAccessAnnotation(CxxMemberCall->getCalleeDecl())) {
-    Logger::getStaticLogger().logError(
+    return Logger::getStaticLogger().logError(
         "function calls with no strict access annotation are not allowed");
-    return false;
   }
 
   std::vector<StrictAccessInfo> StrictAccessInfoList =
@@ -236,9 +241,26 @@ bool FunctionAnalyzer::collectAccessPath_handleSubExpr(clang::Expr *Expr) {
 
 bool FunctionAnalyzer::checkFuseSema() {
   // The function must be gloabl  be a global function
-  if (!FuncDeclNode->isGlobal()) {
-    Logger::getStaticLogger().logError("fuse traversal must be global ");
+  if (!FuncDeclNode->isGlobal() && !FuncDeclNode->isCXXClassMember()) {
+    Logger::getStaticLogger().logError(
+        "fuse traversal must be global or tree class member ");
     return false;
+  }
+
+  if (FuncDeclNode->isGlobal()) {
+    setGlobal();
+  }
+
+  clang::RecordDecl *ContainingRecordDecl;
+  if (FuncDeclNode->isCXXClassMember()) {
+
+    ContainingRecordDecl = dyn_cast<CXXMethodDecl>(FuncDeclNode)->getParent();
+    if (!RecordsAnalyzer::getRecordInfo(ContainingRecordDecl)
+             .isTreeStructure()) {
+      return Logger::getStaticLogger().logError(
+          "fuse traversal class member must belong to tree structure");
+    }
+    setCXXMember();
   }
 
   // Return type must be void
@@ -247,46 +269,47 @@ bool FunctionAnalyzer::checkFuseSema() {
     return false;
   }
 
-  // First parameter must be pointer to a tree structure
-  if (FuncDeclNode->parameters().size() == 0 ||
-      !FuncDeclNode->parameters()[0]->getType()->isPointerType()) {
-    Logger::getStaticLogger().logError(
-        "fuse method first parameter must be pointer to a tree structure");
-    return false;
-  }
+  // First parameter must be pointer to a tree structure if the function is
+  // global
+  if (isGlobal()) {
+    if (FuncDeclNode->parameters().size() == 0 ||
+        !FuncDeclNode->parameters()[0]->getType()->isPointerType()) {
+      Logger::getStaticLogger().logError(
+          "fuse method first parameter must be pointer to a tree structure");
+      return false;
+    }
 
-  // Return type must be void
-  if (!FuncDeclNode->getReturnType()->isVoidType()) {
-    Logger::getStaticLogger().logError("fuse method return type must be void");
-    return false;
-  }
+    TraversedNodeDecl = FuncDeclNode->parameters()[0];
+    TraversedTreeTypeDecl =
+        TraversedNodeDecl->getType()->getPointeeCXXRecordDecl();
 
-  TraversedNodeDecl = FuncDeclNode->parameters()[0];
-  TraversedTreeTypeDecl =
-      TraversedNodeDecl->getType()->getPointeeCXXRecordDecl();
-
-  if (!RecordsAnalyzer::getRecordInfo(TraversedTreeTypeDecl)
-           .isTreeStructure()) {
-    Logger::getStaticLogger().logError(
-        "fuse method first parameter must be pointer to a tree structure");
-    return false;
+    if (!RecordsAnalyzer::getRecordInfo(TraversedTreeTypeDecl)
+             .isTreeStructure()) {
+      Logger::getStaticLogger().logError(
+          "fuse method first parameter must be pointer to a tree structure");
+      return false;
+    }
+  } else {
+    /// The traversed node is the implicit this
+    TraversedNodeDecl = nullptr;
+    TraversedTreeTypeDecl = ContainingRecordDecl;
   }
 
   // All other parameters must be complete  scalers
-  for (int i = 1; i < FuncDeclNode->parameters().size(); i++) {
+  for (int i = isGlobal() ? 1 : 0; i < FuncDeclNode->parameters().size(); i++) {
     if (!RecordsAnalyzer::isCompleteScaler(FuncDeclNode->parameters()[i])) {
-      Logger::getStaticLogger().logError(
-          "fuse method has non complete-scaler parameter ");
       FuncDeclNode->parameters()[i]->dump();
 
-      return false;
+      return Logger::getStaticLogger().logError(
+          "fuse method has non complete-scaler parameter ");
     }
   }
 
   // Analyze top level traversing calls
   for (auto *Stmt : FuncDeclNode->getBody()->children()) {
 
-    if (Stmt->getStmtClass() != clang::Stmt::CallExprClass)
+    if (Stmt->getStmtClass() != clang::Stmt::CallExprClass &&
+        Stmt->getStmtClass() != clang::Stmt::CXXMemberCallExprClass)
       continue;
 
     auto *Call = dyn_cast<clang::CallExpr>(Stmt);
@@ -299,23 +322,26 @@ bool FunctionAnalyzer::checkFuseSema() {
     }
 
     if (hasFuseAnnotation(Call->getCalleeDecl()->getAsFunction())) {
-      AccessPath CalledChildAccessPath(Call->getArg(0),
-                                       nullptr); // dummmy access path
+
+      AccessPath CalledChildAccessPath(
+          isGlobal()
+              ? Call->getArg(0)
+              : dyn_cast<clang::MemberExpr>(
+                    Call->child_begin()->child_begin()->IgnoreImplicit()),
+          nullptr); // dummmy access path
 
       if (!CalledChildAccessPath.isLegal() ||
           CalledChildAccessPath.getDepth() != 2) {
-        Logger::getStaticLogger().logError(
+        return Logger::getStaticLogger().logError(
             "illegal access path in recursive call first argument");
-        return false;
       }
 
       if (!CalledChildAccessPath.onlyUses(
-              TraversedNodeDecl,
+              TraversedNodeDecl /* would be null for this*/,
               RecordsAnalyzer::getRecursiveFields(TraversedTreeTypeDecl))) {
-        Logger::getStaticLogger().logError(
+        return Logger::getStaticLogger().logError(
             "fuse method recursive call is a not traversing a recognized "
             "child ");
-        return false;
       }
 
       clang::FieldDecl *ChildDecl = dyn_cast<clang::FieldDecl>(
@@ -327,7 +353,6 @@ bool FunctionAnalyzer::checkFuseSema() {
     }
   }
 
-
   assert(FuncDeclNode->getBody()->IgnoreImplicit()->getStmtClass() ==
          clang::Stmt::CompoundStmtClass);
 
@@ -336,6 +361,14 @@ bool FunctionAnalyzer::checkFuseSema() {
 }
 
 void FunctionAnalyzer::addAccessPath(AccessPath *AccessPath, bool IsWrite) {
+  LLVM_DEBUG(outs() << this->FuncDeclNode->getQualifiedNameAsString()
+                    << "adding ap:" << CurrStatementInfo->getStatementId()
+                    << "\n";
+             AccessPath->dump());
+
+  if (AccessPath->fromAliasing())
+    addAccessPath(AccessPath->getAliasingDeclAccessPath(), false);
+
   CurrStatementInfo->getAccessPaths().insert(AccessPath, IsWrite);
 }
 
@@ -369,10 +402,12 @@ bool FunctionAnalyzer::collectAccessPath_VisitBinaryOperator(
   // Rightnow the current only supported format is <tree-node> = new Type();
   // No user defined constructors are allowed
   if (BinaryExpr->isAssignmentOp() &&
-      BinaryExpr->getRHS()->getStmtClass() == clang::Stmt::CXXNewExprClass) {
+      BinaryExpr->getRHS()->IgnoreImplicit()->getStmtClass() ==
+          clang::Stmt::CXXNewExprClass) {
 
     // LHS
-    AccessPath *ReplaceNode = new AccessPath(BinaryExpr->getLHS(), this);
+    AccessPath *ReplaceNode =
+        new AccessPath(BinaryExpr->getLHS()->IgnoreImplicit(), this);
 
     if (!ReplaceNode->isLegal() || !ReplaceNode->getValuePathSize() == 0 ||
         !ReplaceNode->isOnTree() ||
@@ -387,14 +422,17 @@ bool FunctionAnalyzer::collectAccessPath_VisitBinaryOperator(
       delete ReplaceNode;
       return false;
     }
-    // Make sure no constructor is called
-    auto *ConstructorDecl = dyn_cast<CXXNewExpr>(BinaryExpr->getRHS())
-                                ->getConstructExpr()
-                                ->getConstructor();
 
-    if (!ConstructorDecl->isTrivial() || !ConstructorDecl->isImplicit()) {
+    // Make sure no constructor is called
+    auto *ConstructorDecl =
+        dyn_cast<CXXNewExpr>(BinaryExpr->getRHS()->IgnoreImplicit())
+            ->getConstructExpr()
+            ->getConstructor();
+
+    if (/*!ConstructorDecl->isTrivial() ||*/ !ConstructorDecl->isImplicit()) {
+      ConstructorDecl->dump();
       Logger::getStaticLogger().logError(
-          "FunctionAnalyzer::collectAccessPath_VisitBinaryOperator: "
+          "FunctionAnalyzer::collectAccessPath_VisitBinarƒyOperator: "
           "constructor not supported");
       delete ReplaceNode;
       return false;
@@ -418,11 +456,9 @@ bool FunctionAnalyzer::collectAccessPath_VisitBinaryOperator(
 
   } else {
     if (!collectAccessPath_handleSubExpr(BinaryExpr->getRHS())) {
-
-      Logger::getStaticLogger().logError(
+      return Logger::getStaticLogger().logError(
           "Error1 in  FunctionAnalyzer::collectAccessPath_VisitBinaryOperator "
           ": BIN RHS unsupported stmt class");
-      return false;
     }
   }
 
@@ -467,7 +503,7 @@ bool FunctionAnalyzer::collectAccessPath_VisitBinaryOperator(
 
 bool FunctionAnalyzer::collectAccessPath_VisitCallExpr(clang::CallExpr *Expr) {
   if (!hasFuseAnnotation(Expr->getCalleeDecl()->getAsFunction())) {
-    
+
     if (!hasStrictAccessAnnotation(Expr->getCalleeDecl())) {
       Logger::getStaticLogger().logError(
           "FunctionAnalyzer::collectAccessPath_VisitCallExpr:  this check must "
@@ -528,12 +564,23 @@ bool FunctionAnalyzer::collectAccessPath_VisitCallExpr(clang::CallExpr *Expr) {
 
     } else {
       if (!collectAccessPath_handleSubExpr(Argument)) {
-        Logger::getStaticLogger().logError(
+        return Logger::getStaticLogger().logError(
             "FunctionAnalyzer::collectAccessPath_VisitCallExpr :unsupported "
             "argument type");
-        return false;
       }
     }
+  }
+
+  if (Expr->getStmtClass() == clang::Stmt::CXXMemberCallExprClass) {
+    AccessPath *NewAccessPath = new AccessPath(
+        dyn_cast<clang::MemberExpr>(
+            Expr->child_begin()->child_begin()->IgnoreImplicit()),
+        this);
+    if (!NewAccessPath->isLegal()) {
+      delete NewAccessPath;
+      return false;
+    }
+    addAccessPath(NewAccessPath, false);
   }
 
   return true;
@@ -547,9 +594,11 @@ bool FunctionAnalyzer::collectAccessPath_VisitCompoundStmt(
   for (auto *ChildStmt : Stmt->children()) {
     // then we are in the main body becouse we are not inside and if statement
     ChildStmt = ChildStmt->IgnoreImplicit();
+
     if (NestedIfDepth == 0) {
       bool isTraversingCall =
-          ChildStmt->getStmtClass() == clang::Stmt::CallExprClass &&
+          (ChildStmt->getStmtClass() == clang::Stmt::CallExprClass ||
+           ChildStmt->getStmtClass() == clang::Stmt::CXXMemberCallExprClass) &&
           hasFuseAnnotation(dyn_cast<clang::CallExpr>(ChildStmt)
                                 ->getCalleeDecl()
                                 ->getAsFunction());
@@ -559,13 +608,23 @@ bool FunctionAnalyzer::collectAccessPath_VisitCompoundStmt(
       Statements.push_back(CurrStatementInfo);
 
       if (isTraversingCall) {
-        AccessPath Arg0((dyn_cast<clang::CallExpr>(ChildStmt))->getArg(0),
-                        nullptr); // dummmy access path
+        auto *CalledFunction = dyn_cast<clang::CallExpr>(ChildStmt)
+                                   ->getCalleeDecl()
+                                   ->getAsFunction()
+                                   ->getDefinition();
+        AccessPath Arg0(
+            CalledFunction->isGlobal()
+                ? (dyn_cast<clang::CallExpr>(ChildStmt))->getArg(0)
+                : dyn_cast<clang::MemberExpr>(ChildStmt->child_begin()
+                                                  ->child_begin()
+                                                  ->IgnoreImplicit()),
+            nullptr); // dummmy access path
         CurrStatementInfo->setCalledChild(
             dyn_cast<clang::FieldDecl>(Arg0.SplittedAccessPath[1].second));
         auto *CalleFuncDecl = dyn_cast<clang::CallExpr>(ChildStmt)
                                   ->getCalleeDecl()
-                                  ->getAsFunction();
+                                  ->getAsFunction()
+                                  ->getDefinition();
 
         CurrStatementInfo->setCalledFunction(CalleFuncDecl);
       }
@@ -577,7 +636,6 @@ bool FunctionAnalyzer::collectAccessPath_VisitCompoundStmt(
 
   return true;
 }
-
 bool FunctionAnalyzer::collectAccessPath_VisitIfStmt(clang::IfStmt *Stmt) {
 
   // Check the condition part first
@@ -622,7 +680,8 @@ bool FunctionAnalyzer::collectAccessPath_VisitIfStmt(clang::IfStmt *Stmt) {
 
     if (!collectAccessPath_handleStmt(ElsePart)) {
       Logger::getStaticLogger().logError(
-          "FunctionAnalyzer::collectAccessPath_VisitIfStmt : unsupported stmt "
+          "FunctionAnalyzer::collectAccessPath_VisitIfStmt : unsupported "
+          "stmt "
           "type in else part");
       return false;
     }
@@ -659,45 +718,80 @@ bool FunctionAnalyzer::collectAccessPath_VisitDeclsStmt(clang::DeclStmt *Stmt) {
 
     assert(VarDecl);
 
-    if (!RecordsAnalyzer::isCompleteScaler(VarDecl)) {
-      Logger::getStaticLogger().logError(
-          "FunctionAnalyzer::collectAccessPath_VisitDeclsStmt declaration  "
-          "type is not allowed");
-      return false;
-    }
+    // Allow aliasing of the form const TreeNode = <On-Tree-Node>
+    if (VarDecl->getType()->isPointerType()) {
+      clang::QualType Type = VarDecl->getType();
 
-    // Add write access path for declaration
-    AccessPath *NewAccessPath = new AccessPath(VarDecl, this);
-    if (!NewAccessPath->isLegal()) {
-      delete NewAccessPath;
-      return false;
-    }
-    addAccessPath(NewAccessPath, true);
+      if (!Type.isConstQualified())
+        return Logger::getStaticLogger().logError(
+            "FunctionAnalyzer::collectAccessPath_VisitDeclsStmt :Aliasing "
+            "statement should define constant pointer");
 
-    // Check the initializing part
-    auto *ExprInit = VarDecl->getInit();
+      AccessPath *NewAccessPath = new AccessPath(VarDecl, this);
 
-    if (ExprInit) {
-      ExprInit = VarDecl->getInit()->IgnoreImpCasts();
+      if (!NewAccessPath->isLegal())
+        llvm_unreachable("unexpected error");
+
+      addAccessPath(NewAccessPath, true);
+
+      if (!VarDecl->getInit())
+        return Logger::getStaticLogger().logError(
+            "aliasing statement must have rhs");
+
+      auto *ExprInit = VarDecl->getInit()->IgnoreImpCasts()->IgnoreCasts();
+
       if (ExprInit->getStmtClass() == Stmt::MemberExprClass ||
           ExprInit->getStmtClass() == Stmt::DeclRefExprClass) {
 
         AccessPath *NewAccessPath = new AccessPath(ExprInit, this);
-
-        if (!NewAccessPath->isLegal()) {
-          delete NewAccessPath;
-          return false;
-        }
         addAccessPath(NewAccessPath, false);
 
+        if (!NewAccessPath->isLegal() || !NewAccessPath->isOnTree() ||
+            NewAccessPath->hasValuePart())
+          return Logger::getStaticLogger().logError(
+              "rhs of aliasing statement not valid");
+
+        addAliasing(VarDecl, NewAccessPath);
+
       } else {
-        if (!collectAccessPath_handleSubExpr(ExprInit)) {
-          Logger::getStaticLogger().logError(
-              "FunctionAnalyzer::collectAccessPath_VisitDeclsStmt : "
-              "declaration initialization not allowed ");
-          return false;
-        }
+        return Logger::getStaticLogger().logError(
+            "rhs of aliasing statement not valids");
       }
+      continue;
+    }
+
+    if (!RecordsAnalyzer::isCompleteScaler(VarDecl))
+      return Logger::getStaticLogger().logError(
+          "FunctionAnalyzer::collectAccessPath_VisitDeclsStmt declaration  "
+          "type is not allowed");
+
+    // Add write access path for declaration
+    AccessPath *NewAccessPath = new AccessPath(VarDecl, this);
+    addAccessPath(NewAccessPath, true);
+
+    if (!NewAccessPath->isLegal())
+      return NewAccessPath;
+
+    // Check the initializing part
+    if (!VarDecl->getInit())
+      continue;
+
+    auto *ExprInit = VarDecl->getInit()->IgnoreImpCasts();
+    if (ExprInit->getStmtClass() == Stmt::MemberExprClass ||
+        ExprInit->getStmtClass() == Stmt::DeclRefExprClass) {
+
+      AccessPath *NewAccessPath = new AccessPath(ExprInit, this);
+
+      if (!NewAccessPath->isLegal())
+        return false;
+
+      addAccessPath(NewAccessPath, false);
+
+    } else {
+      if (!collectAccessPath_handleSubExpr(ExprInit))
+        return Logger::getStaticLogger().logError(
+            "FunctionAnalyzer::collectAccessPath_VisitDeclsStmt : "
+            "declaration initialization not allowed ");
     }
   }
   return true;
@@ -730,8 +824,10 @@ bool FunctionAnalyzer::collectAccessPath_VisitCXXDeleteExpr(
       return false;
     }
 
-    for (auto &BaseClass : TopOfStack->bases())
+    for (auto &BaseClass : TopOfStack->bases()) {
+      assert(BaseClass.getType()->getAsCXXRecordDecl());
       Stack.push(BaseClass.getType()->getAsCXXRecordDecl());
+    }
   }
 
   AccessPath *NewAccessPath = new AccessPath(Expr->getArgument(), this);

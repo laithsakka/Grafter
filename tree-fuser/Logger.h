@@ -33,7 +33,7 @@ private:
 public:
   Logger(int mode_, string fileName_, string header = "");
   void log(string s);
-  void logError(string s);
+  bool logError(string s);
   void logInfo(string s);
   void logDebug(string s);
   void logWarn(string s);

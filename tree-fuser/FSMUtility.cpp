@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 #include <FSMUtility.h>
+#include <Logger.h>
 #include <cstdlib>
 #include <vector>
 #define DEBUG_TYPE "fsm-utility"
@@ -16,10 +17,18 @@
 int FSMUtility::Counter = 2;
 
 std::unordered_map<clang::ValueDecl *, int> FSMUtility::SymbolToLabel =
-    std::unordered_map<clang::ValueDecl *, int>();
+    []() -> std::unordered_map<clang::ValueDecl *, int> {
+  std::unordered_map<clang::ValueDecl *, int> ret;
+  ret[nullptr] = 1;
+  return ret;
+}();
 
 std::unordered_map<int, clang::ValueDecl *> FSMUtility::LabelToSymbol =
-    std::unordered_map<int, clang::ValueDecl *>();
+    []() -> std::unordered_map<int, clang::ValueDecl *> {
+  std::unordered_map<int, clang::ValueDecl *> ret;
+  ret[1] = nullptr;
+  return ret;
+}();
 
 FSM *FSMUtility::AnyClosureAutomata = nullptr;
 
@@ -67,7 +76,6 @@ bool FSMUtility::isEmpty(const FSM &Automata) {
   return Intersection.NumStates() == 0;
 }
 
-// Not used 
 const FSM &FSMUtility::getAnyClosureAutomata() {
   if (!AnyClosureAutomata) {
     AnyClosureAutomata = new FSM();
@@ -101,7 +109,8 @@ void FSMUtility::print(const FSM &Automata, std::string FileName,
 
   if (!Automata.NumStates() ||
       !FSMUtility::hasNonEmptyIntersection(Automata, Automata)) {
-    outs() << "TREEFUSER_WARNING: Cannot print empty automata\n";
+    Logger::getStaticLogger().logWarn(
+        "TREEFUSER_WARNING: Cannot print empty automata");
     return;
   }
 
@@ -110,13 +119,16 @@ void FSMUtility::print(const FSM &Automata, std::string FileName,
   if (!Simplify) {
     Automata.Write(FileName + ".fst");
   } else {
-    FSM Tmp, Tmp2, Tmp3;
+    FSM Tmp, Tmp2, Tmp3, Tmp4;
     fst::Union(&Tmp, Automata);
     //  fst::Disambiguate(Automata, &Tmp);
     fst::RmEpsilon(&Tmp);
     fst::Minimize(&Tmp, &Tmp2, 0, true);
     fst::Disambiguate(Tmp, &Tmp3);
     fst::Minimize(&Tmp3, &Tmp2, 0, true);
+    // fst::Disambiguate(Tmp3, &Tmp4);
+    //  fst::Minimize(&Tmp4, &Tmp2, 0, true);
+
     Tmp3.Write(FileName + ".fst");
   }
 
@@ -126,18 +138,18 @@ void FSMUtility::print(const FSM &Automata, std::string FileName,
       (string("sed -i 's/") + "0:0" + +"/" + "eps" + "/g' " + FileName + ".dot")
           .c_str());
 
+  // Replace labels with symbols
+  for (auto &Entry : LabelToSymbol)
+    if (Entry.second) // avoid when nullptr (thisExpr)
+      system((string("sed -i 's/") + std::to_string(Entry.first) + ":" +
+              std::to_string(Entry.first) + "/" +
+              Entry.second->getNameAsString() + "/g' " + FileName + ".dot")
+                 .c_str());
   system((string("sed -i 's/") + "1:1" + +"/" + "^root" + "/g' " + FileName +
           ".dot")
              .c_str());
 
-  // Replace labels with symbols
-  for (auto &Entry : LabelToSymbol)
-    system((string("sed -i 's/") + std::to_string(Entry.first) + ":" +
-            std::to_string(Entry.first) + "/" +
-            Entry.second->getNameAsString() + "/g' " + FileName + ".dot")
-               .c_str());
-
   system((string("dot -Tps  ") + FileName + ".dot  > " + FileName + ".ps")
              .c_str());
-  //system((string("open ") + FileName + ".ps").c_str());
+  // system((string("open ") + FileName + ".ps").c_str());
 }

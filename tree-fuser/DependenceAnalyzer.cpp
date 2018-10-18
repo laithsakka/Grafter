@@ -14,23 +14,32 @@
 // TODO change this to input configuration
 #define ENABLE_CODE_MOTION 1
 
-DependenceGraph *DependenceAnalyzer::createDependnceGraph(
-    const std::vector<clang::CallExpr *> &Calls) {
+DependenceGraph *DependenceAnalyzer::createDependenceGraph(
+    const std::vector<clang::CallExpr *> &Calls, bool HasVirtualCall,
+    const clang::CXXRecordDecl *TraversedType) {
 
   std::vector<FunctionAnalyzer *> Temp;
   Temp.resize(Calls.size());
   transform(Calls.begin(), Calls.end(), Temp.begin(),
-            [](clang::CallExpr *CallExpr) {
+            [&](clang::CallExpr *CallExpr) {
               auto *CalleeDecl =
                   dyn_cast<clang::FunctionDecl>(CallExpr->getCalleeDecl())
                       ->getDefinition();
 
-              return FunctionsFinder::getFunctionInfo(CalleeDecl);
+              auto *CalleeInfo = FunctionsFinder::getFunctionInfo(CalleeDecl);
+
+              if (CalleeInfo->isVirtual())
+                return FunctionsFinder::getFunctionInfo(
+                    CalleeInfo->getDeclAsCXXMethod()
+                        ->getCorrespondingMethodInClass(TraversedType)
+                        ->getDefinition());
+              else
+                return FunctionsFinder::getFunctionInfo(CalleeDecl);
             });
-  return createDependnceGraph(Temp);
+  return createDependenceGraph(Temp);
 }
 
-DependenceGraph *DependenceAnalyzer::createDependnceGraph(
+DependenceGraph *DependenceAnalyzer::createDependenceGraph(
     const std::vector<FunctionAnalyzer *> &Traversals) {
 
   // Lookup graph nodes using traversal index and StatementInfo*

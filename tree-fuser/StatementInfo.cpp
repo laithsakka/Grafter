@@ -181,39 +181,65 @@ void buildFromSimpleStmt(FSM *FSMachine, int CurrState, StatementInfo *Stmt,
 // accesses
 void buildFromCall(
     FSM *FSMachine, int CurrState, StatementInfo *CallStmt,
-    std::unordered_map<FunctionAnalyzer *, int> FunctionToStateId, bool Reads) {
+    std::unordered_map<FunctionAnalyzer *, int> FunctionToStateId,
+    bool ForReads) {
 
-  buildFromSimpleStmt(FSMachine, CurrState, CallStmt, Reads);
+  buildFromSimpleStmt(FSMachine, CurrState, CallStmt, ForReads);
 
-  auto *CalledFunction =
+  auto *ChildRecord =
+      CallStmt->getCalledChild()->getType()->getPointeeCXXRecordDecl();
+
+  auto CalledChildRecordInfo = RecordsAnalyzer::getRecordInfo(ChildRecord);
+
+  auto *CalledFunctionInfo =
       FunctionsFinder::getFunctionInfo(CallStmt->getCalledFunction());
 
-  if (!FunctionToStateId.count(CalledFunction)) {
-    int NewState = FSMachine->AddState();
-    LLVM_DEBUG(cout << "add function mapping:"
-                    << CalledFunction->getFunctionDecl()->getNameAsString()
-                    << ":" << NewState << "\n");
+  std::set<FunctionAnalyzer *> PossiblyCalledFunctions;
+  if (CalledFunctionInfo->isCXXMember() &&
+      dyn_cast<CXXMethodDecl>(CallStmt->getCalledFunction())->isVirtual()) {
+    PossiblyCalledFunctions.insert(CalledFunctionInfo);
 
-    FunctionToStateId[CalledFunction] = NewState;
+    // For each possible derived type add the corresponding called method
+    for (auto *DerivedRecord : RecordsAnalyzer::DerivedRecords[ChildRecord]) {
+      auto *CalledMethod =
+          dyn_cast<CXXMethodDecl>(CallStmt->getCalledFunction())
+              ->getCorrespondingMethodInClass(DerivedRecord)
+              ->getDefinition();
 
-    for (auto *Stmt : CalledFunction->getStatements()) {
-      if (Stmt->isCallStmt())
-        buildFromCall(FSMachine, NewState, Stmt, FunctionToStateId, Reads);
-      else
-        buildFromSimpleStmt(FSMachine, NewState, Stmt, Reads);
+      PossiblyCalledFunctions.insert(
+          FunctionsFinder::getFunctionInfo(CalledMethod));
     }
-    if (Reads)
-      FSMachine->SetFinal(NewState, 0);
+
+  } else {
+    PossiblyCalledFunctions.insert(CalledFunctionInfo);
   }
-  FSMUtility::addTransition(*FSMachine, CurrState,
-                            FunctionToStateId[CalledFunction],
-                            CallStmt->getCalledChild());
+  for (auto *Function : PossiblyCalledFunctions) {
+    if (!FunctionToStateId.count(Function)) {
+      int NewState = FSMachine->AddState();
+      LLVM_DEBUG(cout << "add function mapping:"
+                      << Function->getFunctionDecl()->getNameAsString() << ":"
+                      << NewState << "\n");
+
+      FunctionToStateId[Function] = NewState;
+
+      for (auto *Stmt : Function->getStatements()) {
+        if (Stmt->isCallStmt())
+          buildFromCall(FSMachine, NewState, Stmt, FunctionToStateId, ForReads);
+        else
+          buildFromSimpleStmt(FSMachine, NewState, Stmt, ForReads);
+      }
+      if (ForReads)
+        FSMachine->SetFinal(NewState, 0);
+    }
+    FSMUtility::addTransition(*FSMachine, CurrState,
+                              FunctionToStateId[Function],
+                              CallStmt->getCalledChild());
+  }
 }
 
 const FSM &StatementInfo::getExtendedTreeReadsAutomata() {
   assert(isCallStmt());
   if (!ExtendedTreeReadsAutomata) {
-    outs() << "doing:" << getStatementId() << "\n";
     ExtendedTreeReadsAutomata = new FSM();
     ExtendedTreeReadsAutomata->AddState();
     ExtendedTreeReadsAutomata->SetStart(0);
@@ -221,8 +247,8 @@ const FSM &StatementInfo::getExtendedTreeReadsAutomata() {
     FSMUtility::addTraversedNodeTransition(*ExtendedTreeReadsAutomata, 0, 1);
     ExtendedTreeReadsAutomata->SetFinal(1, 0);
 
-    std::unordered_map<FunctionAnalyzer *, int> EmtyTable;
-    buildFromCall(ExtendedTreeReadsAutomata, 1, this, EmtyTable, true);
+    std::unordered_map<FunctionAnalyzer *, int> EmptyTable;
+    buildFromCall(ExtendedTreeReadsAutomata, 1, this, EmptyTable, true);
 
     fst::ArcSort(ExtendedTreeReadsAutomata, fst::ILabelCompare<fst::StdArc>());
   }

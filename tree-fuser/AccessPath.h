@@ -27,11 +27,19 @@ typedef std::set<AccessPath *, AccessPathCompare> AccessPathSet;
 
 class AccessPath {
 private:
+  /// Specify if this access path starts with an aliace declaration
+  bool FromAliasing = false;
+
+  /// If FromAlaising = true then this refers to the aliased node
+  AccessPath *AliasingDeclAccessPath = nullptr;
+
   bool parseAccessPath(clang::MemberExpr *MemberExpression);
 
   bool parseAccessPath(clang::DeclRefExpr *DeclRefExpression);
 
   bool parseAccessPath(clang::CXXStaticCastExpr *CastExpression);
+
+  bool parseAccessPath(clang::CXXThisExpr *Expression);
 
   bool handleNextExpression(clang::Stmt *NextExpression);
 
@@ -42,7 +50,7 @@ private:
   /// An index for the the start index of the value part in splittedAccessPath
   /// array
   int ValueStartIndex = -1;
-  
+
   /// A tempory created access-path that does not represent real access
   bool IsDummy = false;
 
@@ -68,6 +76,12 @@ private:
   FSM *ReadAutomata = nullptr;
 
 public:
+  bool fromAliasing() const { return FromAliasing; }
+
+  AccessPath *getAliasingDeclAccessPath() const {
+    return AliasingDeclAccessPath;
+  }
+
   /// Creates an AccessPath from an expression
   AccessPath(clang::Expr *SourceExpression, FunctionAnalyzer *Function,
              StrictAccessInfo *AnnotationInfo = nullptr);
@@ -82,7 +96,7 @@ public:
 
   /// Print the content of the access path
   void dump() {
-    outs() << "IsLocal:" << isLocal()
+    outs() << "IsLocal:" << isLocal() << "IsOnTree:" << isOnTree()
            << ". Value Start:" << getValueStartIndex()
            << " .IsLegal:" << IsLegal << ".\nContent:" << AccessPathString
            << "\n";

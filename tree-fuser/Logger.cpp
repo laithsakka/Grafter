@@ -39,7 +39,7 @@ void Logger::log(string s) {
     cout << this->header << " :\t" << s << endl;
 }
 
-void Logger::logError(string s) {
+bool Logger::logError(string s) {
 
   if (this->mode == _LOGGER_FILE_MODE || this->mode == _LOGGER_HYBRID_MODE)
     this->file << "Error :" << this->header + ":"
@@ -47,6 +47,8 @@ void Logger::logError(string s) {
 
   if (this->mode == _LOGGER_STDOUT_MODE || this->mode == _LOGGER_HYBRID_MODE)
     cout << "Error :" << this->header << " :\t" << s << endl;
+  
+  return  false; 
 }
 void Logger::logInfo(string s) {
   if (this->mode == _LOGGER_FILE_MODE || this->mode == _LOGGER_HYBRID_MODE)

@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 // This class is responsible for traversing the ast, tracking methods with fuse
-// annotation  and apply tree fuser semantic checks.
+// annotation  and apply tree-fuser semantic checks.
 //===----------------------------------------------------------------------===//
 
 #ifndef TREE_FUSER_FUNCTION_FINDER
@@ -22,14 +22,14 @@
 class FunctionsFinder : public clang::RecursiveASTVisitor<FunctionsFinder> {
 public:
 
-  /// Sotre for information about the analyzed functions
+  /// Store for information about the analyzed functions
   static unordered_map<clang::FunctionDecl *, FunctionAnalyzer *>
       FunctionsInformation;
 
   /// Initiate a traversal to analyze functions
   void findFunctions(const clang::ASTContext &Context);
   
-  /// Returns wether a function is treefuser traversal
+  /// Returns wether a function is tree-fuser traversal
   bool isValidFuse(clang::FunctionDecl *funcDecl);
 
   /// Returns the FunctionAnalyzer object related to a given function

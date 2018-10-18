@@ -24,7 +24,7 @@
 #include <vector>
 
 struct FusedTraversalWritebackInfo;
-class StatmentPrinter;
+class StatementPrinter;
 class FusionTransformer;
 
 class TraversalSynthesizer {
@@ -46,7 +46,8 @@ private:
   /// Clang source code rewriter for the associated AST
   clang::Rewriter &Rewriter;
 
-  int getFunctionId(clang::FunctionDecl *) ;
+  /// Return a unique id assigned to each function declaration
+  int getFunctionId(clang::FunctionDecl *);
 
   /// Return the first participating traversal
   int getFirstParticipatingTraversal(
@@ -57,17 +58,18 @@ private:
       const std::vector<bool> &ParticipatingTraversals) const;
 
   void setBlockSubPart(
-      string &Decls, std::string &BlockPart,
+      std::string &BlockPart,
       const std::vector<clang::FunctionDecl *> &ParticipatingTraversals,
-      int BlockId,
-      std::unordered_map<clang::FunctionDecl *, vector<DG_Node *>> &Statements);
+      int BlockId, std::unordered_map<int, vector<DG_Node *>> &Statements,
+      bool HasCXXCall);
 
   ///
   void setCallPart(
       std::string &CallPartText,
       const std::vector<clang::CallExpr *> &ParticipatingCallExpr,
       const std::vector<clang::FunctionDecl *> &ParticipatingTraversalsDecl,
-      DG_Node *CallNode, FusedTraversalWritebackInfo *WriteBackInfo);
+      DG_Node *CallNode, FusedTraversalWritebackInfo *WriteBackInfo,
+      bool HasCXXCall);
 
   /// Return true if a subtraversal with the given participating traversal
   /// is already synthesized
@@ -75,24 +77,41 @@ private:
   isGenerated(const vector<clang::FunctionDecl *> &ParticipatingTraversals);
 
 public:
-  /// Creates a funciton name for a sub-traversal that traverse the
+  static std::map<std::vector<clang::CallExpr *>, string> Stubs;
+
+  // TODO: Make this better
+  static string getVirtualStub(
+      const std::vector<clang::CallExpr *> &ParticipatingTraversals) {
+    static int StubsCount = 0;
+    if (Stubs.count(ParticipatingTraversals))
+      return Stubs[ParticipatingTraversals];
+    else
+      return Stubs[ParticipatingTraversals] =
+                 "__virtualStub" + to_string(StubsCount++);
+  }
+
+  /// Creates a function name for a sub-traversal that traverse the
   /// participating traversals
   std::string
-  createName(const std::vector<clang::CallExpr *> &ParticipatingTraversals);
+  createName(const std::vector<clang::CallExpr *> &ParticipatingTraversalsbool,
+             bool HasVirtual, const CXXRecordDecl *TraversedType);
 
   std::string
   createName(const std::vector<clang::FunctionDecl *> &ParticipatingTraversal);
   /// Return true if a subtraversal with the given participating traversal is
   /// already synthesized
-  bool isGenerated(const vector<clang::CallExpr *> &ParticipatingTraversals);
+  bool isGenerated(const vector<clang::CallExpr *> &ParticipatingTraversals,
+                   bool HasVirtual = false,
+                   const clang::CXXRecordDecl *TraversedType = nullptr);
 
   /// Generates the code of the new traversal
   void WriteUpdates(const std::vector<clang::CallExpr *> CallsExpressions,
-                    const clang::FunctionDecl *EnclosingFunctionDecl);
+                    clang::FunctionDecl *EnclosingFunctionDecl);
 
   void generateWriteBackInfo(
       const std::vector<clang::CallExpr *> &ParticipatingTraversals,
-      const std::vector<DG_Node *> &ToplogicalOrder);
+      const std::vector<DG_Node *> &ToplogicalOrder, bool HasVirtual,
+      bool HasCXXCall, const CXXRecordDecl *DerivedType);
 
   TraversalSynthesizer(clang::ASTContext *ASTContext,
                        clang::Rewriter &Rewriter_,
@@ -101,8 +120,10 @@ public:
   }
 };
 
-class StatmentPrinter {
+class StatementPrinter {
 private:
+  /// Wether the printer shoule replace thisExpr with the rootNode _r
+  bool ReplaceThis;
   /// A string where the output of the printer instance is stored in
   std::string Output;
 
@@ -120,17 +141,29 @@ private:
   /// Inner call that performs actual text generation
   void print_handleStmt(const clang::Stmt *Stmt, SourceManager &SM);
 
+  /// Wether the printer should use _r_f(TraversalId) instead of _r for the
+  /// rootNode
+  bool RootCasedPerTraversals = false;
+
+  /// The number of the traverals in the synthesized function
+  int TraversalsCount;
+
 public:
-  /// Return a new string for the given statment that is used in the new
+  /// Return a new string for the given statement that is used in the new
   /// synthesized traversal
   std::string printStmt(const clang::Stmt *Stmt, SourceManager &SM,
                         clang::ValueDecl *RootDecl, string NextLabel,
-                        int TraversalIndex) {
+                        int TraversalIndex_, bool ReplaceThis_ = true,
+                        bool RootCasedPerTraversals_ = false,
+                        int TraversalsCount_ = 10) {
     this->Output = "";
     this->RootNodeDecl = RootDecl;
     this->NextLabel = NextLabel;
-    this->TraversalIndex = TraversalIndex;
+    this->TraversalIndex = TraversalIndex_;
     this->NestedExpressionDepth = 0;
+    this->ReplaceThis = ReplaceThis_;
+    this->RootCasedPerTraversals = RootCasedPerTraversals_;
+    this->TraversalsCount = TraversalsCount_;
     print_handleStmt(Stmt, SM);
     return Output;
   }

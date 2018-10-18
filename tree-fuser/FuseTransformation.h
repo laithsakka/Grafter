@@ -24,7 +24,7 @@
 
 using namespace std;
 
-typedef std::unordered_map<const clang::FunctionDecl *,
+typedef std::unordered_map<clang::FunctionDecl *,
                            std::vector<std::vector<clang::CallExpr *>>>
     CandidatesList;
 
@@ -34,7 +34,7 @@ private:
   ASTContext *Ctx;
 
   /// Refers to the currently traversed function
-  const clang::FunctionDecl *CurrentFuncDecl;
+  clang::FunctionDecl *CurrentFuncDecl;
 
   /// Store for candidates of fusion
   CandidatesList FusionCandidates;
@@ -59,7 +59,7 @@ public:
 
   bool VisitCompoundStmt(const clang::CompoundStmt *CompoundStmt);
 
-  bool VisitFunctionDecl(const clang::FunctionDecl *FunctionDec);
+  bool VisitFunctionDecl(clang::FunctionDecl *FunctionDec);
 };
 class TraversalSynthesizer;
 class FusionTransformer {
@@ -68,19 +68,18 @@ private:
   FunctionsFinder *FunctionsInformation;
   ASTContext *Ctx;
   DependenceAnalyzer DepAnalyzer;
-  TraversalSynthesizer* Synthesizer = nullptr;
+  TraversalSynthesizer *Synthesizer = nullptr;
 
 public:
   /// Perform fusion transformation on a given list of candidates
   void performFusion(const vector<clang::CallExpr *> &Candidate,
-                     bool IsTopLevel,
-                     const clang::FunctionDecl *EnclosingFunctionDecl
+                     bool IsTopLevel, clang::FunctionDecl *EnclosingFunctionDecl
                      /*just needed fo top level*/);
 
   /// Comming soruce code updates to the source files
   void overwriteChangedFiles() { Rewriter.overwriteChangedFiles(); }
 
-  void peformGreedyFusion(DependenceGraph *DepGraph);
+  void performGreedyFusion(DependenceGraph *DepGraph);
 
   vector<DG_Node *> findToplogicalOrder(DependenceGraph *DepGraph);
 

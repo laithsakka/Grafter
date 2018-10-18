@@ -192,7 +192,7 @@ void DependenceGraph::dumpMergeInfo() {
           to_string(Node->TraversalId) + "|" +
           to_string(Node->StatementInfo->getStatementId()) + "|" +
           to_string((long long)(Node->StatementInfo)));
-      return;
+      continue;
     }
 
     if (Node->isMerged() && !Visited[Node->MergeInfo]) {

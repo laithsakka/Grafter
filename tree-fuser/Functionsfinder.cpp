@@ -14,7 +14,7 @@
 #include "AccessPath.h"
 #include "Logger.h"
 
-#define DEBUG_TYPE "function-finder"
+#define DEBUG_TYPE "functions-finder"
 
 std::unordered_map<clang::FunctionDecl *, FunctionAnalyzer *>
     FunctionsFinder::FunctionsInformation =
@@ -44,6 +44,7 @@ bool FunctionsFinder::isValidFuse(clang::FunctionDecl *funcDecl) {
 
 FunctionAnalyzer *
 FunctionsFinder::getFunctionInfo(clang::FunctionDecl *FuncDecl) {
+  assert(FuncDecl);
   assert(FunctionsInformation.count(FuncDecl));
   return FunctionsInformation[FuncDecl];
 }
@@ -77,12 +78,13 @@ void FunctionsFinder::findFunctions(const ASTContext &Context) {
   for (auto &Entry : FunctionsInformation)
     if (!Entry.second->isValidFuse()) {
       Logger::getStaticLogger().logInfo("function " +
-                                        Entry.first->getNameAsString() +
+                                        Entry.first->getQualifiedNameAsString() +
                                         " is not valid fuse methods");
 
     } else {
       Logger::getStaticLogger().logInfo("function " +
-                                        Entry.first->getNameAsString() +
+                                        Entry.first->getQualifiedNameAsString() +
                                         " is valid fuse methods");
+      LLVM_DEBUG(Entry.second->dump());
     }
 }

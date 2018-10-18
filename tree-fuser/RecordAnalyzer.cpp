@@ -13,7 +13,13 @@
 #include "Logger.h"
 #include <set>
 #include <stack>
+
 RecordsStore RecordsAnalyzer::RecordsInfoGlobalStore = RecordsStore();
+std::unordered_map<const clang::CXXRecordDecl *,
+                   std::vector<const clang::CXXRecordDecl *>>
+    RecordsAnalyzer::DerivedRecords =
+        std::unordered_map<const clang::CXXRecordDecl *,
+                           std::vector<const clang::CXXRecordDecl *>>();
 
 const set<clang::FieldDecl *> &
 RecordsAnalyzer::getRecursiveFields(const clang::RecordDecl *RecordDecl) {
@@ -34,17 +40,17 @@ bool RecordsAnalyzer::isCompleteScaler(clang::ValueDecl *const Decl) {
   if (Decl->getType()->isBuiltinType())
     return true;
 
-  if (!Decl->getType()->isClassType() && !Decl->getType()->isStructureType()) 
+  if (!Decl->getType()->isClassType() && !Decl->getType()->isStructureType())
     return false;
-  
+
   auto *Ctx = &Decl->getASTContext();
 
   auto *RecordDecl = Decl->getType()->getAsCXXRecordDecl();
   auto *RecordInfo = RecordsAnalyzer::RecordsInfoGlobalStore[Ctx][RecordDecl];
 
-  if (RecordInfo && RecordInfo->IsCompleteScaler != -1)  
+  if (RecordInfo && RecordInfo->IsCompleteScaler != -1)
     return RecordInfo->IsCompleteScaler;
-  
+
   auto It = RecordDecl->field_begin();
   while (It != RecordDecl->field_end()) {
     if (!isCompleteScaler(*It)) {
@@ -59,8 +65,8 @@ bool RecordsAnalyzer::isPrimitiveScaler(clang::ValueDecl *const Decl) {
 
   if (Decl->getType()->isBuiltinType())
     return true;
-    
-    return false;
+
+  return false;
 }
 
 bool RecordsAnalyzer::VisitCXXRecordDecl(
@@ -75,6 +81,7 @@ bool RecordsAnalyzer::VisitCXXRecordDecl(
         "RecordsAnalyzer::VisitCXXRecordDecl : record already analyzed");
     return true;
   }
+
   Logger::getStaticLogger().logInfo("analyzing " +
                                     RecordDecl->getNameAsString() + "\n");
 
@@ -97,7 +104,7 @@ bool RecordsAnalyzer::VisitCXXRecordDecl(
     }
 
     // Check if the type of the field is recursive
-    
+
     std::set<const clang::CXXRecordDecl *> DeclTypes;
 
     std::stack<const clang::CXXRecordDecl *> Stack;
@@ -145,8 +152,11 @@ bool RecordsAnalyzer::VisitCXXRecordDecl(
     const clang::CXXRecordDecl *TopOfStack = Stack.top();
     Stack.pop();
 
-    for (auto &BaseClass : TopOfStack->bases())
+    for (auto &BaseClass : TopOfStack->bases()) {
       Stack.push(BaseClass.getType()->getAsCXXRecordDecl());
+      DerivedRecords[BaseClass.getType()->getAsCXXRecordDecl()].push_back(
+          RecordDecl);
+    }
 
     if (!RecordsAnalyzer::RecordsInfoGlobalStore[Ctx].count(TopOfStack))
       VisitCXXRecordDecl(TopOfStack);
@@ -167,6 +177,7 @@ bool RecordsAnalyzer::VisitCXXRecordDecl(
   RecordInformation->IsTreeStructure = 1;
   Logger::getStaticLogger().logInfo("record " + RecordDecl->getNameAsString() +
                                     " is a tree structure");
+
   return true;
 }
 

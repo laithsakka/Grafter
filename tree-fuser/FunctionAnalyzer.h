@@ -30,6 +30,13 @@ class FunctionAnalyzer {
   friend class AccessPath;
 
 private:
+  /// Maps local defintion to their aliased tree locations
+  std::map<clang::ValueDecl *, AccessPath *> LocalAliasingMap;
+
+  /// Determine weather the function is virtual member or global (the only two
+  /// allowed versions)
+  bool IsGlobal = true;
+
   ///  Declaration of the analyzed functions
   clang::FunctionDecl *FuncDeclNode;
 
@@ -86,7 +93,41 @@ private:
   bool collectAccessPath_VisitCXXDeleteExpr(clang::CXXDeleteExpr *Expr);
 
 public:
+  bool isVirtual() {
+    if (isGlobal())
+      return false;
+    if (isCXXMember()) {
+      return dyn_cast<clang::CXXMethodDecl>(FuncDeclNode)->isVirtual();
+    }
+  }
+
+  clang::CXXMethodDecl *getDeclAsCXXMethod() {
+    if (isGlobal())
+      return nullptr;
+    if (isCXXMember())
+      return dyn_cast<clang::CXXMethodDecl>(FuncDeclNode);
+  }
+
+  void addAliasing(clang::ValueDecl *Decl, AccessPath *Ap) {
+    LocalAliasingMap[Decl] = Ap;
+  }
+
+  AccessPath *getLocalAliasing(clang::ValueDecl *Decl) const {
+    if (!LocalAliasingMap.count(Decl))
+      return nullptr;
+    else
+      return LocalAliasingMap.find(Decl)->second;
+  }
+
   FunctionAnalyzer(clang::FunctionDecl *FuncDeclaration);
+
+  bool isCXXMember() const { return !IsGlobal; };
+
+  bool isGlobal() const { return IsGlobal; };
+
+  void setCXXMember() { IsGlobal = false; };
+
+  void setGlobal() { IsGlobal = true; };
 
   /// Return the top level statements in the body of the function
   std::vector<StatementInfo *> &getStatements() { return Statements; }

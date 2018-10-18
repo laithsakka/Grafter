@@ -93,6 +93,7 @@ AccessPath::AccessPath(clang::Expr *SourceExpression,
     break;
   }
   default:
+    SourceExpression->dump();
     llvm_unreachable("type not supported");
   }
 
@@ -102,6 +103,28 @@ AccessPath::AccessPath(clang::Expr *SourceExpression,
   }
   if (IsDummy)
     return;
+
+  // Replace local aliasing
+  auto *Aliasing = EnclosingFunction->getLocalAliasing(getDeclAtIndex(0));
+  clang::ValueDecl *AliasingLocalDecl = getDeclAtIndex(0);
+  if (Aliasing) {
+    assert(Aliasing->isOnTree() && !Aliasing->hasValuePart());
+    SplittedAccessPath.erase(SplittedAccessPath.begin());
+    SplittedAccessPath.insert(SplittedAccessPath.begin(),
+                              Aliasing->SplittedAccessPath.begin(),
+                              Aliasing->SplittedAccessPath.end());
+    FromAliasing = true;
+    AccessPathString = "";
+    for (auto Entry : SplittedAccessPath) {
+
+      if (AccessPathString.size() != 0)
+        AccessPathString += ".";
+
+      AccessPathString += Entry.first;
+    }
+    AliasingDeclAccessPath =
+        new AccessPath(dyn_cast<clang::VarDecl>(AliasingLocalDecl), Function);
+  }
 
   setValueStartIndex();
 
@@ -131,7 +154,6 @@ AccessPath::AccessPath(clang::Expr *SourceExpression,
         Logger::getStaticLogger().logError(
             "on-tree access-path contains invalid tree access symbol");
         SplittedAccessPath[I].second->dump();
-        dump();
         IsLegal = false;
       }
     }
@@ -263,7 +285,10 @@ void AccessPath::setValueStartIndex() {
 
 void AccessPath::appendSymbol(clang::ValueDecl *NodeDecleration) {
 
-  std::string AccessSymbol = NodeDecleration->getNameAsString();
+  // This is a hack (this) is represented by nullptr everywhere in tree-fuser
+  // for now
+  std::string AccessSymbol =
+      NodeDecleration ? NodeDecleration->getNameAsString() : "^";
 
   if (!IsDummy && EnclosingFunction->TraversedNodeDecl == NodeDecleration)
     AccessSymbol = "^";
@@ -302,6 +327,11 @@ bool AccessPath::parseAccessPath(clang::CXXStaticCastExpr *Expression) {
   return handleNextExpression(Expression->getSubExpr()->IgnoreImplicit());
 }
 
+bool AccessPath::parseAccessPath(clang::CXXThisExpr *Expression) {
+  assert(Expression);
+  appendSymbol(nullptr);
+}
+
 bool AccessPath::parseAccessPath(clang::DeclRefExpr *Expression) {
   assert(Expression);
   appendSymbol(Expression->getDecl());
@@ -311,38 +341,7 @@ bool AccessPath::parseAccessPath(clang::DeclRefExpr *Expression) {
 
 bool AccessPathCompare::operator()(const AccessPath *LHS,
                                    const AccessPath *RHS) const {
-  bool AreSame = true;
-  if (LHS->SplittedAccessPath.size() != RHS->SplittedAccessPath.size()) {
-    AreSame = false;
-  } else {
-    for (unsigned i = 0; i < LHS->SplittedAccessPath.size(); i++) {
-      if (LHS->SplittedAccessPath[i].second !=
-          LHS->SplittedAccessPath[i].second)
-        AreSame = false;
-    }
-  }
-
-  if (AreSame) {
-    if (LHS->isStrictAccessCall() && RHS->isStrictAccessCall()) {
-      if (LHS->isOnTree() && RHS->isOnTree()) {
-        if (LHS->getAnnotationInfo().Id != RHS->getAnnotationInfo().Id)
-          AreSame = false;
-      } else if (LHS->isOffTree() && RHS->isOffTree()) {
-        if (LHS->getAnnotationInfo().Id != RHS->getAnnotationInfo().Id)
-          AreSame = false;
-      } else { // they have different types
-        AreSame = false;
-      }
-    }
-    // one of them is strict access
-    else if (LHS->isStrictAccessCall() || RHS->isStrictAccessCall())
-      AreSame = false;
-  }
-
-  if (AreSame)
-    return false;
-  else
-    return LHS < RHS;
+  return LHS->SplittedAccessPath < RHS->SplittedAccessPath;
 }
 
 bool AccessPath::handleNextExpression(clang::Stmt *NextExpression) {
@@ -359,7 +358,8 @@ bool AccessPath::handleNextExpression(clang::Stmt *NextExpression) {
   case Stmt::ParenExprClass:
     return handleNextExpression(
         (dyn_cast<clang::ParenExpr>(NextExpression))->getSubExpr());
-
+  case Stmt::CXXThisExprClass:
+    return parseAccessPath(dyn_cast<clang::CXXThisExpr>(NextExpression));
   default:
     Logger::getStaticLogger().logError(
         "AccessPath::handleNextExpression unsupported type "

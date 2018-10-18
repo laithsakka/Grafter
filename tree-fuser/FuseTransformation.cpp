@@ -12,8 +12,7 @@
 #include "DependenceAnalyzer.h"
 #include "DependenceGraph.h"
 
-bool FusionCandidatesFinder::VisitFunctionDecl(
-    const clang::FunctionDecl *FuncDecl) {
+bool FusionCandidatesFinder::VisitFunctionDecl(clang::FunctionDecl *FuncDecl) {
   CurrentFuncDecl = FuncDecl;
   return true;
 }
@@ -25,7 +24,9 @@ bool FusionCandidatesFinder::VisitCompoundStmt(
 
   for (auto *InnerStmt : CompoundStmt->body()) {
 
-    if (InnerStmt->getStmtClass() != Stmt::CallExprClass) {
+    if (InnerStmt->getStmtClass() != Stmt::CallExprClass &&
+        InnerStmt->getStmtClass() != Stmt::CXXMemberCallExprClass) {
+
       if (Candidate.size() > 1)
         FusionCandidates[CurrentFuncDecl].push_back(Candidate);
 
@@ -58,6 +59,23 @@ bool FusionCandidatesFinder::VisitCompoundStmt(
   return true;
 }
 
+AccessPath extractVisitedChild(clang::CallExpr *Call) {
+  if (Call->getStmtClass() == clang::Stmt::CXXMemberCallExprClass) {
+    auto *ExprCallRemoved =
+        Call->child_begin()->child_begin()->IgnoreImplicit();
+
+    if (ExprCallRemoved->getStmtClass() == clang::Stmt::DeclRefExprClass)
+      return AccessPath(dyn_cast<clang::DeclRefExpr>(ExprCallRemoved), nullptr);
+    else if (ExprCallRemoved->getStmtClass() == clang::Stmt::MemberExprClass)
+      return AccessPath(dyn_cast<clang::MemberExpr>(ExprCallRemoved), nullptr);
+    else
+      llvm_unreachable("unsupported case");
+
+  } else {
+    return AccessPath(Call->getArg(0), nullptr);
+  }
+}
+
 bool FusionCandidatesFinder::areCompatibleCalls(clang::CallExpr *Call1,
                                                 clang::CallExpr *Call2) {
 
@@ -67,13 +85,13 @@ bool FusionCandidatesFinder::areCompatibleCalls(clang::CallExpr *Call1,
   auto *Decl1 = dyn_cast<clang::FunctionDecl>(Call1->getCalleeDecl());
   auto *Decl2 = dyn_cast<clang::FunctionDecl>(Call2->getCalleeDecl());
 
-  if (!FunctionsInformation->isValidFuse(Decl1) ||
-      !FunctionsInformation->isValidFuse(Decl2))
+  if (!FunctionsInformation->isValidFuse(Decl1->getDefinition()) ||
+      !FunctionsInformation->isValidFuse(Decl2->getDefinition()))
     return false;
 
-  // Operate on the same tree
-  AccessPath TraversalRoot1(Call1->getArg(0), nullptr); // dummmy access path
-  AccessPath TraversalRoot2(Call2->getArg(0), nullptr); // dummmy access path
+  // visiting the same child
+  AccessPath TraversalRoot1 = extractVisitedChild(Call1);
+  AccessPath TraversalRoot2 = extractVisitedChild(Call2);
 
   if (TraversalRoot1.SplittedAccessPath.size() !=
       TraversalRoot2.SplittedAccessPath.size())
@@ -97,37 +115,68 @@ FusionTransformer::FusionTransformer(ASTContext *Ctx,
 
 void FusionTransformer::performFusion(
     const vector<clang::CallExpr *> &Candidate, bool IsTopLevel,
-    const clang::FunctionDecl
-        *EnclosingFunctionDecl /*just needed fo top level*/) {
+    clang::FunctionDecl *EnclosingFunctionDecl /*just needed fo top level*/) {
 
-  // Check if function is generated before
-  if (!Synthesizer->isGenerated(Candidate)) {
+  bool HasVirtual = false;
+  bool HasCXXMethod = false;
 
-    Logger::getStaticLogger().logInfo("Creating DG for a candidate");
-    DependenceGraph *DepGraph = DepAnalyzer.createDependnceGraph(Candidate);
-    DepGraph->dump();
-
-    peformGreedyFusion(DepGraph);
-
-    DepGraph->dumpMergeInfo();
-
-    // Check that fusion was correctly made
-    assert(!DepGraph->hasCycle() && "dep graph has cycle");
-    assert(!DepGraph->hasWrongFuse() && "dep graph has wrong merging");
-
-    // Generate a topological sort
-    Logger::getStaticLogger().logDebug("Generating topological sort");
-
-    std::vector<DG_Node *> ToplogicalOrder = findToplogicalOrder(DepGraph);
-
-    Synthesizer->generateWriteBackInfo(Candidate, ToplogicalOrder);
+  for (auto *Call : Candidate) {
+    auto *CalleeInfo = FunctionsFinder::getFunctionInfo(
+        Call->getCalleeDecl()->getAsFunction()->getDefinition());
+    if (CalleeInfo->isCXXMember())
+      HasCXXMethod = true;
+    if (CalleeInfo->isVirtual())
+      HasVirtual = true;
   }
+  AccessPath AP = extractVisitedChild(Candidate[0]);
+  auto *TraversedType = AP.getDeclAtIndex(AP.SplittedAccessPath.size() - 1)
+                            ->getType()
+                            ->getPointeeCXXRecordDecl();
+
+  auto fuseFunctions = [&](const CXXRecordDecl *DerivedType) {
+    if (!Synthesizer->isGenerated(Candidate, HasVirtual, DerivedType)) {
+      Logger::getStaticLogger().logInfo(
+          "Generating Code for function " +
+          Synthesizer->createName(Candidate, HasVirtual, DerivedType));
+
+      Logger::getStaticLogger().logInfo("Creating DG for a candidate");
+
+      DependenceGraph *DepGraph =
+          DepAnalyzer.createDependenceGraph(Candidate, HasVirtual, DerivedType);
+
+      DepGraph->dump();
+
+      performGreedyFusion(DepGraph);
+
+      DepGraph->dumpMergeInfo();
+
+      // Check that fusion was correctly made
+      assert(!DepGraph->hasCycle() && "dep graph has cycle");
+      assert(!DepGraph->hasWrongFuse() && "dep graph has wrong merging");
+
+      // Generate a topological sort
+      Logger::getStaticLogger().logDebug("Generating topological sort");
+
+      std::vector<DG_Node *> ToplogicalOrder = findToplogicalOrder(DepGraph);
+
+      Synthesizer->generateWriteBackInfo(Candidate, ToplogicalOrder, HasVirtual,
+                                         HasCXXMethod, DerivedType);
+    }
+  };
+  if (HasVirtual) {
+    fuseFunctions(TraversedType);
+    for (auto *DerivedType : RecordsAnalyzer::DerivedRecords[TraversedType]) {
+      fuseFunctions(DerivedType);
+    }
+  } else
+    fuseFunctions(nullptr);
+
   if (IsTopLevel) {
     Synthesizer->WriteUpdates(Candidate, EnclosingFunctionDecl);
   }
 }
 
-void FusionTransformer::peformGreedyFusion(DependenceGraph *DepGraph) {
+void FusionTransformer::performGreedyFusion(DependenceGraph *DepGraph) {
   unordered_map<clang::FieldDecl *, vector<DG_Node *>> ChildToCallers;
   for (auto *Node : DepGraph->getNodes()) {
     if (Node->getStatementInfo()->isCallStmt()) {

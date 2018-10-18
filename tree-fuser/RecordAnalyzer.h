@@ -78,7 +78,12 @@ public:
 
   bool VisitCXXRecordDecl(const clang::CXXRecordDecl *RecordDecl);
 
+  static std::unordered_map<const clang::CXXRecordDecl *,
+                            std::vector<const clang::CXXRecordDecl *>>
+      DerivedRecords;
+  // static std::vector<clang::CXXRecordDecl*> getPossibleTypes(){}
 private:
+  /// Stores type hierarchy
 
   /// A table that stores record information
   static std::unordered_map<
