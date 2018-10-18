@@ -15,8 +15,6 @@ TreeFuser2 is an ongoing extention for TreeFuser that is aiming to mainly add th
 Treefuser uses Clang libraries and by design it is built as one of Clang tools. The build process is not much different from a regular Clang build. The following instructions assumes that you are running under Linux (works for mac)
 
 ### Prerequisite 
-Insrtructions for building TreeFuser2 is same as posted above, except:
-
 (1) Make sure that you have OpenFST library installed in the system. http://www.openfst.org/twiki/bin/view/FST/WebHome 
 
 (2) Update tree-fuser/CMakeLists.txt by adding the path to OpenFST library to target_link_libraries
