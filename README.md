@@ -1,7 +1,7 @@
 # Treefuser2
 TreeFuser is a tool that perform traversals fusion for recursive tree traversals written in subset of the c++ language, for more information about the tool check the paper(https://dl.acm.org/citation.cfm?id=3133900).
 
-TreeFuser is an ongoing extention for TreeFuser that is aiming to mainly add the following support:
+TreeFuser2 is an ongoing extention for TreeFuser that is aiming to mainly add the following support:
 1. Node Creation.
 2. Node Deletion.
 3. Aliasing Statements.
