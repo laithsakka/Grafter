@@ -123,22 +123,22 @@ public:
 
 ### Tree strucutre
 Any c++ class can be annotated as a tree strucutre, recursive fields should be annotated as well,
-all a tree structure that are going to be used in the tree traversals should be public this is something that 
-we are planning to work at.
+all a tree structure's members that are going to be used in the tree traversals should be public this is something that 
+we are planning to work relax later.
 
-Hetrogenious types are supported thorugh inheritance, all classes that are derived from a tree should
+Hetrogenious types are supported thorugh inheritance, all classes that are derived from a tree structure should
 have the tree structure annotation as well.
 
 ### Traversals
 There are two ways traversals can be written :
 
-1. Global Functions: Those traversals should have the traversed node as the first paranmeter( a pointer to the traversed node).
+1. Global Functions: Those traversals should have the traversed node as the first paranmeter(a pointer to the traversed node).
 2. Member Functions: Those traversals are class members and implicity traverse the node refered to by the (this), 
 Those traversals can be virtual functions, and they she be used along with inhertince to handle type based traversals.
 In the example above searchin a null node does not do anything so the base function is called, while searching a ValueNode performs actual search.
 
 #### Traversals Langauge Restrictions:
-Those restriction are enforced by tree-fuser and violated, tree-fuser should indicate the violation. 
+Those restriction are enforced by TreeFuser, and if violated TreeFuser should indicate the violation. 
 Yet more testing is needed for robustness.
 
 1. Return types should be void. (except for absract accesses).
