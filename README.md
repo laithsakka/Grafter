@@ -1,8 +1,28 @@
-# Treefuser
+# Treefuser2
 TreeFuser is a tool that perform traversals fusion for recursive tree traversals written in subset of the c++ language, for more information about the tool check the paper(https://dl.acm.org/citation.cfm?id=3133900).
 
+TreeFuser is an ongoing extention for TreeFuser that is aiming to mainly add the following support:
+1. Node Creation.
+2. Node Deletion.
+3. Aliasing Statements.
+4. Support Hentrogenous Types through Inheritance and Virtual functions.
+5. Support mutual recursion.
+6. Change the access representation to an automatas using OpenFST and depndence checks to intersections.
+
+
 # INSTALLATION
+
 Treefuser uses Clang libraries and by design it is built as one of Clang tools. The build process is not much different from a regular Clang build. The following instructions assumes that you are running under Linux.
+
+### Prerequisite 
+Insrtructions for building TreeFuser2 is same as posted above, except:
+
+(1) Make sure that you have OpenFST library installed in the system. http://www.openfst.org/twiki/bin/view/FST/WebHome 
+
+(2) Update tree-fuser/CMakeLists.txt by adding the path to OpenFST library to target_link_libraries
+by defualt it will try to link  /usr/local/lib/libfst.13.dylib 
+
+### Now you are ready
 
 Start with cloning LLVM and Clang repos:
 
@@ -39,14 +59,7 @@ Proceed to a normal LLVM build using a compiler with C++11 support (for GCC use 
 
 tree-fuser will be available under ./bin/ Add this directory to your path to ensure the rest of the commands in this tutorial work.
 
-
-### TreeFuser2
-Insrtructions for building TreeFuser2 is same as posted above, except:
-
-(1) Make sure that you have OpenFST library installed in the system. http://www.openfst.org/twiki/bin/view/FST/WebHome 
-
-(2) Update tree-fuser/CMakeLists.txt by adding the path to OpenFST library to target_link_libraries
-by defualt it will try to link  /usr/local/lib/libfst.13.dylib .
+.
 
 # Usage
 This part considers that the user is using TreeFuser2.
