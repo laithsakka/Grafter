@@ -159,6 +159,7 @@ What is allowd
 8. NULL Expression.
 9. Calls to other traversals.
 10. Calls to abstarct access fuctions**.
+..etc try some other things! 
                             
 
 
