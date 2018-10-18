@@ -17,9 +17,6 @@ Treefuser uses Clang libraries and by design it is built as one of Clang tools. 
 ### Prerequisite 
 (1) Make sure that you have OpenFST library installed in the system. http://www.openfst.org/twiki/bin/view/FST/WebHome 
 
-(2) Update tree-fuser/CMakeLists.txt by adding the path to OpenFST library to target_link_libraries
-by defualt it will try to link  /usr/local/lib/libfst.13.dylib 
-
 ### Now you are ready
 
 Start with cloning LLVM and Clang repos:
@@ -42,6 +39,7 @@ Download the folder tree-fuser from the repo and put inside llvm/tools/clang/too
 > cd ..
 
 #### Add the following line to llvm/tools/clang/tools/CMakeLists.txt \"add_clang_subdirectory(tree-fuser)\" 
+#### Update llvm/tools/clang/tools/tree-fuser/CMakeLists.txt by adding the path to OpenFST library to target_link_libraries by defualt it will try to link  /usr/local/lib/libfst.13.dylib 
 
 Proceed to a normal LLVM build using a compiler with C++11 support (for GCC use version 4.9 or later):
 
