@@ -74,7 +74,7 @@ There are four main annotations that are used in TreeFuser langauage:
 3. tree_traversals: Indentify tree traversals
 4. abstract_access.
 
-An example of a code written for treefuser is bellow:
+An example of a code written for treefuser is bellow for more comlicated examples check examples folder.
 
 ```c++
 #include <assert.h>
@@ -117,6 +117,7 @@ public:
     Right->search(Key, Key >= Value);
     Found = Left->Found || Right->Found;
   }
+  
   };
 ```
 
