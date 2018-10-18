@@ -149,9 +149,9 @@ What is allowd
 1. Mutual recursions.
 2. If Satement.
 3. Assigment.
-4. Node deletion delete <path to tree node>
-5. Node creation <path to tree node> = new ().
-6. Aliasing statement : TreeNodeType * const X = <path to tree node>
+4. Node deletion delete path-to-tree-node
+5. Node creation path-to-tree-node = new ().
+6. Aliasing statement : TreeNodeType * const X = path-to-tree-node
 7. BinaryExpressions (>, <, ==, &&, || ..etc)
 8. NULL Expression.
 9. Calls to other traversals.
