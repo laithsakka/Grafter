@@ -61,7 +61,7 @@ tree-fuser will be available under ./bin/ Add this directory to your path to ens
 This part considers that the user is using TreeFuser2.
 you can run tree-fuser simply as tree-fuser file.cpp --
 
-TreeFuser will look for sequence of traversals that traverse the same structure and try to fuse them, It will update the files, make sure to operate on a copy of the files or create a backup.
+TreeFuser looks for sequence of traversals that traverse the same structure and try to fuse them, It will update the files, make sure to operate on a copy of the files or create a backup.
 
 ## Language 
 TreeFuser operates on code written in subset of C++ language, the code can coexists with other general C++ code without problems.
@@ -123,8 +123,8 @@ public:
 
 ### Tree structure
 Any c++ class can be annotated as a tree structure, recursive fields should be annotated as well,
-all a tree structure's members that are going to be used in the tree traversals should be public this is something that 
-we are planning to work relax later.
+all tree structure's members that are going to be used in the tree traversals should be public this is something that 
+we are planning to relax later.
 
 Heterogeneous types are supported through inheritance, all classes that are derived from a tree structure should
 have the tree structure annotation as well.
@@ -133,9 +133,10 @@ have the tree structure annotation as well.
 There are two ways traversals can be written :
 
 1. Global Functions: Those traversals should have the traversed node as the first parameter(a pointer to the traversed node).
-2. Member Functions: Those traversals are class members and implicitly traverse the node referred to by the (this), 
-Those traversals can be virtual functions, and they she be used along with inheritance to handle type based traversals.
-In the example above searching a null node does not do anything so the base function is called, while searching a ValueNode performs actual search.
+2. Member Functions: Those traversals are class members of tree structures and traverse the node referred to by the implicit this pointer, 
+Those traversals can be virtual functions, and they should be used along with inheritance to handle type based traversals.
+
+In the example above searching a NullNode does not do anything so the base function is called, while searching a ValueNode performs actual searching.
 
 #### Traversals Language Restrictions:
 Those restriction are enforced by TreeFuser, and if violated TreeFuser should indicate the violation. 
@@ -143,7 +144,7 @@ Yet more testing is needed for robustness.
 
 1. Return types should be void. (except for abstract accesses).
 2. Traversing Calls cant be conditioned. (except for abstract accesses).
-3. No for loops.
+3. No for loops (mutual recursions can be used to implement that)
 
 What is allowed
 1. Mutual recursions.
@@ -156,6 +157,7 @@ What is allowed
 8. NULL Expression.
 9. Calls to other traversals.
 10. Calls to abstract access functions**.
+
 ..etc try some other things! 
                             
 
