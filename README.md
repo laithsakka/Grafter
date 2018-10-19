@@ -1,13 +1,13 @@
 # Treefuser2
 TreeFuser is a tool that perform traversals fusion for recursive tree traversals written in subset of the c++ language, for more information about the tool check the paper(https://dl.acm.org/citation.cfm?id=3133900).
 
-TreeFuser2 is an ongoing extention for TreeFuser that is aiming to mainly add the following support:
+TreeFuser2 is an ongoing extension for TreeFuser that is aiming to mainly add the following support:
 1. Node Creation.
 2. Node Deletion.
 3. Aliasing Statements.
-4. Support Hentrogenous Types through Inheritance and Virtual functions.
+4. Support Heterogonous Types through Inheritance and Virtual functions.
 5. Support mutual recursion.
-6. Change the access representation to an automatas using OpenFST and depndence checks to intersections.
+6. Change the access representation to an automates using OpenFST and dependence checks to intersections.
 
 
 # INSTALLATION
@@ -61,20 +61,20 @@ tree-fuser will be available under ./bin/ Add this directory to your path to ens
 This part considers that the user is using TreeFuser2.
 you can run tree-fuser simply as tree-fuser file.cpp --
 
-TreeFuser will look for sequqnce of traversals that traverse the same structure and try to fuse them, It will update the files, make sure to operate on a copy of the files or create a backup.
+TreeFuser will look for sequence of traversals that traverse the same structure and try to fuse them, It will update the files, make sure to operate on a copy of the files or create a backup.
 
 ## Language 
 TreeFuser operates on code written in subset of C++ language, the code can coexists with other general C++ code without problems.
 The restrictions are for the functions that are annotated to be considered for fusion by TreeFuser.
 
-There are four main annotations that are used in TreeFuser langauage:
+There are four main annotations that are used in TreeFuser language:
 
-1. tree_structure : A class annotation that indentifies tree structures:
-2. tree_child: A class member annotation that idenitifes recursiveFields: 
-3. tree_traversals: Indentify tree traversals
-4. abstract_access.
+1. tree_structure : A class annotation that identifies tree structures:
+2. tree_child: A class member annotation that identifies recursive Fields: 
+3. tree_traversals: Identify tree traversals
+4. abstract access.
 
-An example of a code written for treefuser is bellow for more comlicated examples check examples folder.
+An example of a code written for TreeFuser is bellow for more complicated examples check examples folder.
 
 ```c++
 #include <assert.h>
@@ -121,42 +121,43 @@ public:
   };
 ```
 
-### Tree strucutre
-Any c++ class can be annotated as a tree strucutre, recursive fields should be annotated as well,
+### Tree structure
+Any c++ class can be annotated as a tree structure, recursive fields should be annotated as well,
 all a tree structure's members that are going to be used in the tree traversals should be public this is something that 
 we are planning to work relax later.
 
-Hetrogenious types are supported thorugh inheritance, all classes that are derived from a tree structure should
+Heterogeneous types are supported through inheritance, all classes that are derived from a tree structure should
 have the tree structure annotation as well.
 
 ### Traversals
 There are two ways traversals can be written :
 
-1. Global Functions: Those traversals should have the traversed node as the first paranmeter(a pointer to the traversed node).
-2. Member Functions: Those traversals are class members and implicity traverse the node refered to by the (this), 
-Those traversals can be virtual functions, and they she be used along with inhertince to handle type based traversals.
-In the example above searchin a null node does not do anything so the base function is called, while searching a ValueNode performs actual search.
+1. Global Functions: Those traversals should have the traversed node as the first parameter(a pointer to the traversed node).
+2. Member Functions: Those traversals are class members and implicitly traverse the node referred to by the (this), 
+Those traversals can be virtual functions, and they she be used along with inheritance to handle type based traversals.
+In the example above searching a null node does not do anything so the base function is called, while searching a ValueNode performs actual search.
 
-#### Traversals Langauge Restrictions:
+#### Traversals Language Restrictions:
 Those restriction are enforced by TreeFuser, and if violated TreeFuser should indicate the violation. 
 Yet more testing is needed for robustness.
 
-1. Return types should be void. (except for absract accesses).
-2. Traversing Calls cant be conditioned. (except for absract accesses).
+1. Return types should be void. (except for abstract accesses).
+2. Traversing Calls cant be conditioned. (except for abstract accesses).
 3. No for loops.
 
-What is allowd
+What is allowed
 1. Mutual recursions.
-2. If Satement.
-3. Assigment.
+2. If Statement.
+3. Assignment.
 4. Node deletion delete path-to-tree-node
 5. Node creation path-to-tree-node = new ().
-6. Aliasing statement : TreeNodeType * const X = path-to-tree-node
+6. Aliasing statement: TreeNodeType * const X = path-to-tree-node
 7. BinaryExpressions (>, <, ==, &&, || ..etc)
 8. NULL Expression.
 9. Calls to other traversals.
-10. Calls to abstarct access fuctions**.
+10. Calls to abstract access functions**.
 ..etc try some other things! 
                             
+
 
 
