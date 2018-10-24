@@ -592,7 +592,7 @@ bool FunctionAnalyzer::collectAccessPath_VisitCompoundStmt(
 
   // Check each statement alone
   for (auto *ChildStmt : Stmt->children()) {
-    // then we are in the main body becouse we are not inside and if statement
+    // then we are in the main body because we are not inside and if statement
     ChildStmt = ChildStmt->IgnoreImplicit();
 
     if (NestedIfDepth == 0) {
@@ -612,6 +612,15 @@ bool FunctionAnalyzer::collectAccessPath_VisitCompoundStmt(
                                    ->getCalleeDecl()
                                    ->getAsFunction()
                                    ->getDefinition();
+        if (!CalledFunction) {
+          Logger::getStaticLogger().logWarn(
+              "A tree traversal is declared but not defined:" +
+              dyn_cast<clang::CallExpr>(ChildStmt)
+                  ->getCalleeDecl()
+                  ->getAsFunction()
+                  ->getQualifiedNameAsString());
+          return false;
+        }
         AccessPath Arg0(
             CalledFunction->isGlobal()
                 ? (dyn_cast<clang::CallExpr>(ChildStmt))->getArg(0)
