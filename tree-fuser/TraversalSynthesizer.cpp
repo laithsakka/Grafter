@@ -232,25 +232,26 @@ void TraversalSynthesizer::setCallPart(
                              toBinaryString(ConditionBitMask) + ") )/*call*/";
   CallPartText += CallConditionText + "{\n\t";
 
-  if (NextCallNodes.size() == 1) {
-    int CalledTraversalId = NextCallNodes[0]->getTraversalId();
+  // add an argument to enable disable this optimization
+  // if (NextCallNodes.size() == 1) {
+  //   int CalledTraversalId = NextCallNodes[0]->getTraversalId();
 
-    auto *RootDecl =
-        CallNode->getStatementInfo()->getEnclosingFunction()->isGlobal()
-            ? CallNode->getStatementInfo()
-                  ->getEnclosingFunction()
-                  ->getFunctionDecl()
-                  ->getParamDecl(0)
-            : nullptr;
+  //   auto *RootDecl =
+  //       CallNode->getStatementInfo()->getEnclosingFunction()->isGlobal()
+  //           ? CallNode->getStatementInfo()
+  //                 ->getEnclosingFunction()
+  //                 ->getFunctionDecl()
+  //                 ->getParamDecl(0)
+  //           : nullptr;
 
-    CallPartText += Printer.printStmt(
-        NextCallNodes[0]->getStatementInfo()->Stmt,
-        ASTContext->getSourceManager(), RootDecl, "not used",
-        CallNode->getTraversalId(), /*replace this*/ HasCXXCall, HasCXXCall);
+  //   CallPartText += Printer.printStmt(
+  //       NextCallNodes[0]->getStatementInfo()->Stmt,
+  //       ASTContext->getSourceManager(), RootDecl, "not used",
+  //       CallNode->getTraversalId(), /*replace this*/ HasCXXCall, HasCXXCall);
 
-    CallPartText += "\n}";
-    return;
-  }
+  //   CallPartText += "\n}";
+  //   return;
+  // }
 
   std::vector<clang::CallExpr *> NexTCallExpressions;
   for (auto *Node : NextCallNodes)
@@ -358,27 +359,39 @@ void TraversalSynthesizer::setCallPart(
   return;
 }
 
-// TODO : add a check that the call consists only of tree children if you think
-// needed
-clang::QualType
-getTraversedType(const std::vector<clang::CallExpr *> &ParticipatingCalls) {
-  clang::CallExpr *Call = ParticipatingCalls[0];
-  if (Call->getStmtClass() == clang::Stmt::CXXMemberCallExprClass) {
-    auto *CallRemovedExpr =
-        Call->child_begin()->child_begin()->IgnoreImplicit();
-    if (CallRemovedExpr->getStmtClass() == clang::Stmt::DeclRefExprClass)
-      return dyn_cast<DeclRefExpr>(CallRemovedExpr)->getType();
-    else if (CallRemovedExpr->getStmtClass() == clang::Stmt::MemberExprClass)
-      return dyn_cast<clang::MemberExpr>(CallRemovedExpr)
-          ->getMemberDecl()
-          ->getType();
-    else
-      llvm_unreachable("not suppported case");
-  } else {
-    return ParticipatingCalls[0]->getArg(0)->getType();
-  }
+const clang::CXXRecordDecl *
+extractDeclTraversedType(clang::FunctionDecl *FuncDecl) {
+  auto *FunctionInfo =
+      FunctionsFinder::getFunctionInfo(FuncDecl->getDefinition());
+  return dyn_cast<CXXRecordDecl>(FunctionInfo->getTraversedTreeTypeDecl());
 }
 
+// return th
+
+const clang::CXXRecordDecl *getHighestCommonTraversedType(
+    std::vector<clang::FunctionDecl *> &ParticipatingFunctions) {
+  auto *HighestCommon = extractDeclTraversedType(ParticipatingFunctions[0]);
+  for (int i = 1; i < ParticipatingFunctions.size(); i++) {
+    const clang::CXXRecordDecl *Candidate =
+        extractDeclTraversedType(ParticipatingFunctions[i]);
+    if (Candidate == HighestCommon)
+      continue;
+    if (std::find(RecordsAnalyzer::DerivedRecords[HighestCommon].begin(),
+                  RecordsAnalyzer::DerivedRecords[HighestCommon].end(),
+                  Candidate) !=
+        RecordsAnalyzer::DerivedRecords[HighestCommon].end()) {
+      HighestCommon = Candidate;
+    } else if (std::find(RecordsAnalyzer::DerivedRecords[Candidate].begin(),
+                         RecordsAnalyzer::DerivedRecords[Candidate].end(),
+                         HighestCommon) !=
+               RecordsAnalyzer::DerivedRecords[Candidate].end()) {
+      // do nothing
+    } else {
+      llvm_unreachable("not supposed to happen !");
+    }
+  }
+  return HighestCommon;
+}
 void TraversalSynthesizer::generateWriteBackInfo(
     const std::vector<clang::CallExpr *> &ParticipatingCalls,
     const std::vector<DG_Node *> &ToplogicalOrder, bool HasVirtual,
@@ -391,24 +404,6 @@ void TraversalSynthesizer::generateWriteBackInfo(
 
   // check if already generated and assert on It
   assert(!isGenerated(ParticipatingCalls, HasVirtual, DerivedType));
-
-  // create writeback info
-  FusedTraversalWritebackInfo *WriteBackInfo =
-      new FusedTraversalWritebackInfo();
-
-  SynthesizedFunctions[idName] = WriteBackInfo;
-
-  WriteBackInfo->ParticipatingCalls = ParticipatingCalls;
-  WriteBackInfo->FunctionName = idName;
-
-  // create forward declaration
-  WriteBackInfo->ForwardDeclaration = "void " + idName + "(";
-
-  // Adding the type of the traversed node as the first argument
-  WriteBackInfo->ForwardDeclaration +=
-      string(HasVirtual ? DerivedType->getNameAsString() + "*"
-                        : getTraversedType(ParticipatingCalls).getAsString()) +
-      " _r";
 
   vector<clang::FunctionDecl *> TraversalsDeclarationsList;
   TraversalsDeclarationsList.resize(ParticipatingCalls.size());
@@ -427,6 +422,25 @@ void TraversalSynthesizer::generateWriteBackInfo(
               else
                 return CalleeDecl;
             });
+
+  // create writeback info
+  FusedTraversalWritebackInfo *WriteBackInfo =
+      new FusedTraversalWritebackInfo();
+
+  SynthesizedFunctions[idName] = WriteBackInfo;
+
+  WriteBackInfo->ParticipatingCalls = ParticipatingCalls;
+  WriteBackInfo->FunctionName = idName;
+
+  // create forward declaration
+  WriteBackInfo->ForwardDeclaration = "void " + idName + "(";
+
+  // Adding the type of the traversed node as the first argument
+  // Actually this should be hmm
+  WriteBackInfo->ForwardDeclaration +=
+      getHighestCommonTraversedType(TraversalsDeclarationsList)
+          ->getNameAsString() +
+      "*" + " _r";
 
   // append the arguments of each method and rename locals  by adding _fx_ only
   // participating traversals
