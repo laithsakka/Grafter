@@ -70,9 +70,10 @@ vector<StrictAccessInfo> getStrictAccessInfo(clang::Decl *Declaration) {
       StrictAccessInfoEntry.IsReadOnly = true;
     else if (Par2.compare("'w'") == 0)
       StrictAccessInfoEntry.IsReadOnly = false;
-    else
-      llvm_unreachable("Invalid strict access annotation");
-
+    else {
+      llvm_unreachable(
+          ("Invalid strict access annotation:" + Par2.str()).c_str());
+    }
     StrictAccessInfoEntry.Id = stoi(Par1.str());
 
     if (Par3.compare("'local'") == 0) {
