@@ -206,6 +206,9 @@ void buildFromCall(
               ->getCorrespondingMethodInClass(DerivedRecord)
               ->getDefinition();
 
+      assert(CalledMethod &&
+             "cannot find defintion (declared but not defined)" );
+
       PossiblyCalledFunctions.insert(
           FunctionsFinder::getFunctionInfo(CalledMethod));
     }
