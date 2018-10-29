@@ -147,6 +147,8 @@ bool FunctionAnalyzer::collectAccessPath_VisitCXXMemberCallExpr(
   assert(Expr->getStmtClass() == Stmt::CXXMemberCallExprClass);
   auto *CxxMemberCall = dyn_cast<clang::CXXMemberCallExpr>(Expr);
 
+  assert(false && "Not supported yet in TreeFuser2");
+
   if (!hasStrictAccessAnnotation(CxxMemberCall->getCalleeDecl())) {
     return Logger::getStaticLogger().logError(
         "function calls with no strict access annotation are not allowed");
@@ -180,6 +182,7 @@ bool FunctionAnalyzer::collectAccessPath_VisitCXXMemberCallExpr(
     } else {
 
       if (!collectAccessPath_handleSubExpr(Argument)) {
+        Argument->dump();
         Logger::getStaticLogger().logError(
             "FunctionAnalyzer unsupported argument type");
         return false;
@@ -193,6 +196,11 @@ bool FunctionAnalyzer::collectAccessPath_handleSubExpr(clang::Expr *Expr) {
   Expr = Expr->IgnoreImplicit();
 
   switch (Expr->getStmtClass()) {
+    //  case clang::Stmt::UnaryOperatorClass:
+    //     if (!collectAccessPath_VisitBinaryOperator(
+    //             (dyn_cast<clang::UnaryOperator>(Expr))->getSubExpr()))
+    //       return false;
+    //     break;
 
   case clang::Stmt::BinaryOperatorClass:
     if (!collectAccessPath_VisitBinaryOperator(
@@ -201,10 +209,19 @@ bool FunctionAnalyzer::collectAccessPath_handleSubExpr(clang::Expr *Expr) {
     break;
 
   case clang::Stmt::CXXConstructExprClass: {
-    auto *Constructor = dyn_cast<CXXConstructExpr>(Expr);
-
-    // Return wether if its the default empty constructor
-    return Constructor->getConstructor()->isTrivial();
+    auto *ConstructorExpr = dyn_cast<CXXConstructExpr>(Expr);
+    if (!ConstructorExpr->getConstructor()->isTrivial()) {
+      return Logger::getStaticLogger().logError("Constructor not allowed");
+    } else {
+      assert(ConstructorExpr->getNumArgs() == 1);
+      AccessPath *NewAccess = new AccessPath(ConstructorExpr->getArg(0), this);
+      if (!NewAccess->isLegal()) {
+        delete NewAccess;
+        return false;
+      }
+      this->addAccessPath(NewAccess, false);
+      return true;
+    }
   }
 
   case clang::Stmt::ParenExprClass: {
@@ -505,7 +522,9 @@ bool FunctionAnalyzer::collectAccessPath_VisitCallExpr(clang::CallExpr *Expr) {
   if (!hasFuseAnnotation(Expr->getCalleeDecl()->getAsFunction())) {
 
     if (!hasStrictAccessAnnotation(Expr->getCalleeDecl())) {
+      Expr->dump();
       Logger::getStaticLogger().logError(
+
           "FunctionAnalyzer::collectAccessPath_VisitCallExpr:  this check must "
           "be removed from here , this is not the place for these checks "
           "Error1 in VisitCallExpr ");
@@ -517,25 +536,49 @@ bool FunctionAnalyzer::collectAccessPath_VisitCallExpr(clang::CallExpr *Expr) {
         getStrictAccessInfo(Expr->getDirectCallee());
 
     for (auto &AnnotatedAccess : AnnotatedAccesses) {
-      AccessPath *NewAccessPath = new AccessPath(Expr->getDirectCallee(), this);
-      NewAccessPath->setAnnotationInfo(AnnotatedAccess);
-      if (NewAccessPath->isLegal() == false) {
-        delete NewAccessPath;
-        return false;
-      }
-      if (!NewAccessPath->getAnnotationInfo().IsGlobal) {
+      if (!AnnotatedAccess.IsGlobal) {
         Expr->dump();
         Logger::getStaticLogger().logError(
             "FunctionAnalyzer::collectAccessPath_VisitCallExpr:  strict "
             "access call must be global for for non CXXMemberCallExpr ");
         return false;
       }
-      bool IsWrite = false;
 
-      if (!NewAccessPath->getAnnotationInfo().IsReadOnly)
-        IsWrite = true;
+      // We need to add access paths of the arguments !
+      AccessPath *NewAccessPath = new AccessPath(Expr->getDirectCallee(), this);
+      FSMUtility::addSymbol(AnnotatedAccess.Id);
+      NewAccessPath->setAnnotationInfo(AnnotatedAccess);
+      // always legal
+      if (NewAccessPath->isLegal() == false) {
+        delete NewAccessPath;
+        return false;
+      }
+      addAccessPath(NewAccessPath, !AnnotatedAccess.IsReadOnly);
 
-      addAccessPath(NewAccessPath, IsWrite);
+      for (auto *Argument : Expr->arguments()) {
+        Argument = Argument->IgnoreImplicit();
+        if (Argument->getStmtClass() == clang::Stmt::MemberExprClass ||
+            Argument->getStmtClass() == clang::Stmt::DeclRefExprClass) {
+
+          AccessPath *NewAccessPath = new AccessPath(Argument, this);
+
+          if (!NewAccessPath->isLegal()) {
+            delete NewAccessPath;
+            return false;
+          }
+          addAccessPath(NewAccessPath, false);
+
+        } else {
+          if (!collectAccessPath_handleSubExpr(Argument)) {
+            Argument->dump();
+            Expr->dump();
+            return Logger::getStaticLogger().logError(
+                "FunctionAnalyzer::collectAccessPath_VisitCallExpr "
+                ":unsupported "
+                "argument type");
+          }
+        }
+      }
     }
     return true;
   }
@@ -798,9 +841,10 @@ bool FunctionAnalyzer::collectAccessPath_VisitDeclsStmt(clang::DeclStmt *Stmt) {
 
     } else {
       if (!collectAccessPath_handleSubExpr(ExprInit))
-        return Logger::getStaticLogger().logError(
-            "FunctionAnalyzer::collectAccessPath_VisitDeclsStmt : "
-            "declaration initialization not allowed ");
+        ExprInit->dump();
+      return Logger::getStaticLogger().logError(
+          "FunctionAnalyzer::collectAccessPath_VisitDeclsStmt : "
+          "declaration initialization not allowed ");
     }
   }
   return true;

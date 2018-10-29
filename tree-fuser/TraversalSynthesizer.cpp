@@ -129,11 +129,12 @@ string &Decls,*/ std::string &BlockPart,
                     const int BlockId,
                     std::unordered_map<int, vector<DG_Node *>> &Statements,
                     bool HasCXXCall) {
-  std::string Declarations = "";
   StatementPrinter Printer;
 
   for (int TraversalIndex = 0;
        TraversalIndex < ParticipatingTraversalsDecl.size(); TraversalIndex++) {
+    std::string Declarations = "";
+
     if (!Statements.count(TraversalIndex))
       continue;
 
@@ -233,25 +234,25 @@ void TraversalSynthesizer::setCallPart(
   CallPartText += CallConditionText + "{\n\t";
 
   // add an argument to enable disable this optimization
-  // if (NextCallNodes.size() == 1) {
-  //   int CalledTraversalId = NextCallNodes[0]->getTraversalId();
+  if (NextCallNodes.size() == 1) {
+    int CalledTraversalId = NextCallNodes[0]->getTraversalId();
 
-  //   auto *RootDecl =
-  //       CallNode->getStatementInfo()->getEnclosingFunction()->isGlobal()
-  //           ? CallNode->getStatementInfo()
-  //                 ->getEnclosingFunction()
-  //                 ->getFunctionDecl()
-  //                 ->getParamDecl(0)
-  //           : nullptr;
+    auto *RootDecl =
+        CallNode->getStatementInfo()->getEnclosingFunction()->isGlobal()
+            ? CallNode->getStatementInfo()
+                  ->getEnclosingFunction()
+                  ->getFunctionDecl()
+                  ->getParamDecl(0)
+            : nullptr;
 
-  //   CallPartText += Printer.printStmt(
-  //       NextCallNodes[0]->getStatementInfo()->Stmt,
-  //       ASTContext->getSourceManager(), RootDecl, "not used",
-  //       CallNode->getTraversalId(), /*replace this*/ HasCXXCall, HasCXXCall);
+    CallPartText += Printer.printStmt(
+        NextCallNodes[0]->getStatementInfo()->Stmt,
+        ASTContext->getSourceManager(), RootDecl, "not used",
+        CallNode->getTraversalId(), /*replace this*/ HasCXXCall, HasCXXCall);
 
-  //   CallPartText += "\n}";
-  //   return;
-  // }
+    CallPartText += "\n}";
+    return;
+  }
 
   std::vector<clang::CallExpr *> NexTCallExpressions;
   for (auto *Node : NextCallNodes)
@@ -291,16 +292,30 @@ void TraversalSynthesizer::setCallPart(
           : nullptr;
 
   // Create the call
-  if (!HasCXXMethod) {
-
-    auto FirstArgument =
-        dyn_cast<clang::CallExpr>(CallNode->getStatementInfo()->Stmt)
-            ->getArg(0);
+  if (!HasVirtual) {
 
     CallPartText += NextCallName + "(";
-    NextCallParamsText += Printer.printStmt(
-        FirstArgument, ASTContext->getSourceManager(), RootDeclCallNode, "",
-        CallNode->getTraversalId(), HasCXXCall, HasCXXCall);
+
+    if (CallNode->getStatementInfo()->Stmt->getStmtClass() ==
+        clang::Stmt::CallExprClass) {
+      auto FirstArgument =
+          dyn_cast<clang::CallExpr>(CallNode->getStatementInfo()->Stmt)
+              ->getArg(0);
+      NextCallParamsText += Printer.printStmt(
+          FirstArgument, ASTContext->getSourceManager(), RootDeclCallNode, "",
+          CallNode->getTraversalId(), HasCXXCall, HasCXXCall);
+
+    } else if (CallNode->getStatementInfo()->Stmt->getStmtClass() ==
+               clang::Stmt::CXXMemberCallExprClass) {
+      NextCallParamsText += Printer.printStmt(
+          CallNode->getStatementInfo()
+              ->Stmt->child_begin()
+              ->child_begin()
+              ->IgnoreImplicit(),
+          ASTContext->getSourceManager(), RootDeclCallNode, "",
+          CallNode->getTraversalId(), HasCXXCall, HasCXXCall);
+    }
+
   } else {
     if (CallNode->getStatementInfo()->Stmt->getStmtClass() ==
         clang::Stmt::CXXMemberCallExprClass) {
@@ -423,7 +438,7 @@ void TraversalSynthesizer::generateWriteBackInfo(
                 return CalleeDecl;
             });
 
-  // create writeback info
+  // create keback info
   FusedTraversalWritebackInfo *WriteBackInfo =
       new FusedTraversalWritebackInfo();
 
@@ -540,6 +555,12 @@ void TraversalSynthesizer::WriteUpdates(
   // add forward declarations
   for (auto &SynthesizedFunction : SynthesizedFunctions) {
     Rewriter.InsertText(EnclosingFunctionDecl->getLocStart(),
+                        (SynthesizedFunction.second->ForwardDeclaration) +
+                            string(";\n"));
+  }
+
+  for (auto &SynthesizedFunction : SynthesizedFunctions) {
+    Rewriter.InsertText(EnclosingFunctionDecl->getLocStart(),
                         (SynthesizedFunction.second->ForwardDeclaration +
                          "\n{\n" + SynthesizedFunction.second->Body +
                          "\n};\n"));
@@ -571,14 +592,21 @@ void TraversalSynthesizer::WriteUpdates(
 
   string Params = "";
 
-  if (!HasCXXMethod) {
-    auto FirstArgument =
-        dyn_cast<clang::CallExpr>(CallsExpressions[0])->getArg(0);
-
+  if (!HasVirtual) {
     NewCall += NextCallName + "(";
 
-    Params += Printer.printStmt(FirstArgument, ASTContext->getSourceManager(),
-                                nullptr, "", -1);
+    if (CallsExpressions[0]->getStmtClass() == clang::Stmt::CallExprClass) {
+      auto FirstArgument =
+          dyn_cast<clang::CallExpr>(CallsExpressions[0])->getArg(0);
+      Params += Printer.printStmt(FirstArgument, ASTContext->getSourceManager(),
+                                  nullptr, "", -1);
+    } else if (CallsExpressions[0]->getStmtClass() ==
+               clang::Stmt::CXXMemberCallExprClass) {
+      Params += Printer.printStmt(
+          CallsExpressions[0]->child_begin()->child_begin()->IgnoreImplicit(),
+          ASTContext->getSourceManager(), nullptr, "", -1);
+    }
+
   } else {
     if (CallsExpressions[0]->getStmtClass() ==
         clang::Stmt::CXXMemberCallExprClass) {
@@ -724,11 +752,13 @@ void StatementPrinter::print_handleStmt(const clang::Stmt *Stmt,
     auto *CallExpr = dyn_cast<clang::CallExpr>(Stmt);
     Output += CallExpr->getDirectCallee()->getNameAsString() + "(";
 
-    auto *LastArgument = CallExpr->getArg(CallExpr->getNumArgs() - 1);
-    for (auto *Argument : CallExpr->arguments()) {
-      print_handleStmt(Argument, SM);
-      if (Argument != LastArgument)
-        Output += ",";
+    if (CallExpr->getNumArgs()) {
+      auto *LastArgument = CallExpr->getArg(CallExpr->getNumArgs() - 1);
+      for (auto *Argument : CallExpr->arguments()) {
+        print_handleStmt(Argument, SM);
+        if (Argument != LastArgument)
+          Output += ",";
+      }
     }
     Output += ")";
 
@@ -860,7 +890,7 @@ void StatementPrinter::print_handleStmt(const clang::Stmt *Stmt,
     Output += "->" +
               CallExpr->getCalleeDecl()->getAsFunction()->getNameAsString() +
               "(";
-    if (CallExpr->getNumArgs() != 0) {
+    if (CallExpr->getNumArgs()) {
       auto *LastArgument = CallExpr->getArg(CallExpr->getNumArgs() - 1);
       for (auto *Argument : CallExpr->arguments()) {
         print_handleStmt(Argument, SM);
@@ -897,8 +927,25 @@ void StatementPrinter::print_handleStmt(const clang::Stmt *Stmt,
           RootCasedPerTraversals ? "_r_f" + to_string(TraversalIndex) : "_r";
     break;
   }
-
+  case Stmt::UnaryOperatorClass: {
+    auto *UnaryOpExp = dyn_cast<clang::UnaryOperator>(Stmt);
+    Output += UnaryOpExp->getOpcodeStr(UnaryOpExp->getOpcode()).str();
+    print_handleStmt(UnaryOpExp->getSubExpr(), SM);
+    break;
+  }
+  case Stmt::IntegerLiteralClass: {
+    auto *IntegerLit = dyn_cast<clang::IntegerLiteral>(Stmt);
+    Output += IntegerLit->getValue().toString(10, true);
+    break;
+  }
+  case Stmt::CXXConstructExprClass: {
+    auto *ConstructExpr = dyn_cast<clang::CXXConstructExpr>(Stmt);
+    if (ConstructExpr->getNumArgs())
+      print_handleStmt(ConstructExpr->getArg(0), SM);
+    break;
+  }
   default:
+    Stmt->dump();
     Output += stmtTostr(Stmt, SM);
   }
   return;

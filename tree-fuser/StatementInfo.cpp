@@ -129,6 +129,7 @@ const FSM &StatementInfo::getTreeWritesAutomata(bool IncludeExtended) {
 // Helper function used during the build of extended accesses only for on-tree
 // accesses
 
+// ok here is the issue then ! mhmm i hope this wont ruin all the speedups :(
 void buildFromAccessPath(FSM *FSMachine, int CurrState, AccessPath *AP,
                          bool Reads) {
   bool First = true;
@@ -145,6 +146,12 @@ void buildFromAccessPath(FSM *FSMachine, int CurrState, AccessPath *AP,
     if (Reads)
       FSMachine->SetFinal(NewState, 0);
   }
+  auto *LastField =
+      AP->SplittedAccessPath[AP->SplittedAccessPath.size() - 1].second;
+
+  if (!RecordsAnalyzer::isPrimitiveScaler(LastField) && AP->hasValuePart())
+    FSMUtility::addAnyTransition(*FSMachine, CurrState, CurrState);
+
   FSMachine->SetFinal(CurrState, 0);
 }
 
@@ -207,7 +214,7 @@ void buildFromCall(
               ->getDefinition();
 
       assert(CalledMethod &&
-             "cannot find defintion (declared but not defined)" );
+             "cannot find defintion (declared but not defined)");
 
       PossiblyCalledFunctions.insert(
           FunctionsFinder::getFunctionInfo(CalledMethod));

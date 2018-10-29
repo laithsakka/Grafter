@@ -7,7 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 // This class is responsible for traversing the AST, find methods with fuse
-// annotation, apply tree fuser semantic checks on them and peform some analysis.
+// annotation, apply tree fuser semantic checks on them and perform some
+// analysis.
 //===----------------------------------------------------------------------===//
 
 #include "FunctionsFinder.h"
@@ -31,7 +32,7 @@ bool FunctionsFinder::VisitFunctionDecl(clang::FunctionDecl *FuncDeclaration) {
   FunctionAnalyzer *FuncInfo = new FunctionAnalyzer(FuncDeclaration);
 
   FunctionsInformation[FuncDeclaration] = FuncInfo;
-  LLVM_DEBUG(if (FuncInfo->isValidFuse()) { FuncInfo->dump(); });
+ // LLVM_DEBUG(if (FuncInfo->isValidFuse()) { FuncInfo->dump(); });
   return true;
 }
 
@@ -54,7 +55,7 @@ void FunctionsFinder::findFunctions(const ASTContext &Context) {
   bool KeepLooping = true;
 
   // Make sure that all traversing calls are to valid fuse function otherwise
-  // invalidate the function
+  // invalidate the caller
   while (KeepLooping) {
     KeepLooping = false;
     for (auto &Entry : FunctionsInformation) {
@@ -63,11 +64,28 @@ void FunctionsFinder::findFunctions(const ASTContext &Context) {
         for (auto &TraversingCall :
              ContainingFunctionInfo->getTraversingCalls()) {
           clang::FunctionDecl *CalledFunction = TraversingCall.first;
-
+          auto *CalledFunctionInfo =
+              FunctionsFinder::getFunctionInfo(CalledFunction);
+          if (CalledFunctionInfo->isVirtual()) {
+            for (auto *PossibleDerviedType : RecordsAnalyzer::DerivedRecords
+                     [TraversingCall.second->getType()
+                          ->getPointeeCXXRecordDecl()]) {
+              auto *CalledOverrideFunction =
+                  dyn_cast<clang::CXXMethodDecl>(CalledFunction)
+                      ->getCorrespondingMethodInClass(PossibleDerviedType);
+              if (!isValidFuse(CalledOverrideFunction)) {
+                ContainingFunctionInfo->setValidFuse(false);
+                ContainingFunctionInfo->getFunctionDecl()->dump();
+                // CalledFunction->dump();
+                KeepLooping = true;
+                break;
+              }
+            }
+          }
           if (!isValidFuse(CalledFunction)) {
             ContainingFunctionInfo->setValidFuse(false);
             ContainingFunctionInfo->getFunctionDecl()->dump();
-            CalledFunction->dump();
+            // CalledFunction->dump();
             KeepLooping = true;
             break;
           }
@@ -77,14 +95,18 @@ void FunctionsFinder::findFunctions(const ASTContext &Context) {
 
   for (auto &Entry : FunctionsInformation)
     if (!Entry.second->isValidFuse()) {
-      Logger::getStaticLogger().logInfo("function " +
-                                        Entry.first->getQualifiedNameAsString() +
-                                        " is not valid fuse methods");
+      Logger::getStaticLogger().logInfo(
+          "function " + Entry.first->getQualifiedNameAsString() +
+          " is not valid fuse methods");
+    }
 
-    } else {
-      Logger::getStaticLogger().logInfo("function " +
-                                        Entry.first->getQualifiedNameAsString() +
-                                        " is valid fuse methods");
+  for (auto &Entry : FunctionsInformation)
+    if (Entry.second->isValidFuse()) {
+
+      Logger::getStaticLogger().logInfo(
+          "function " + Entry.first->getQualifiedNameAsString() +
+          " is valid fuse methods");
+
       LLVM_DEBUG(Entry.second->dump());
     }
 }

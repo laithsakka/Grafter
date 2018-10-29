@@ -58,6 +58,7 @@ AccessPath::AccessPath(clang::Expr *SourceExpression,
     break;
   case Stmt::CXXMemberCallExprClass: {
     auto *CallExpression = dyn_cast<clang::CXXMemberCallExpr>(SourceExpression);
+
     assert(hasStrictAccessAnnotation(CallExpression->getCalleeDecl()) &&
            "Member function call not allowed with out annotation");
 
@@ -74,6 +75,7 @@ AccessPath::AccessPath(clang::Expr *SourceExpression,
 
     auto &FirstParameter = **(*CallExpression->child_begin())->child_begin();
 
+    // TODO: only one parameter supported for now i assume
     assert(std::next((*CallExpression->child_begin())->child_begin()) ==
            (*CallExpression->child_begin())->child_end());
 
@@ -159,6 +161,8 @@ AccessPath::AccessPath(clang::Expr *SourceExpression,
     }
   }
 
+  // is it ok to allow value parts to be pointers ? how do we make sure that the
+  // language does not support alia
   if (getValueStartIndex() != -1) {
     for (int I = getValueStartIndex(); I < SplittedAccessPath.size(); I++) {
       if (getDeclAtIndex(I)->getType()->isPointerType() ||
@@ -188,6 +192,7 @@ AccessPath::AccessPath(clang::VarDecl *VarDeclaration,
   FSMUtility::addSymbol(VarDeclaration);
 }
 
+// build an access path for a global strict access
 AccessPath::AccessPath(clang::FunctionDecl *FunctionDeclaration,
                        FunctionAnalyzer *Function) {
 
@@ -195,12 +200,11 @@ AccessPath::AccessPath(clang::FunctionDecl *FunctionDeclaration,
 
   if (Function == nullptr)
     IsDummy = true;
-
-  // this->AnnotationInfo=getStrictAccessInfo( decl);
   AccessPathString = "strictOffTreeAccess" + to_string(AnnotationInfo.Id) +
                      "(" + FunctionDeclaration->getNameAsString() + ")";
-  // this->SplittedAccessPath.push_back(make_pair(decl->getNameAsString(),
-  // decl));
+
+  // this->SplittedAccessPath.push_back(make_pair(FunctionDeclaration->getNameAsString(),
+  //  Dummy));
   ValueStartIndex = 0;
   IsStrictAccessCall = true;
 }
@@ -378,6 +382,18 @@ const FSM &AccessPath::getWriteAutomata() {
     int StateId = WriteAutomata->AddState();
     WriteAutomata->SetStart(StateId /*0*/);
 
+    // Handle global strict access
+    if (IsStrictAccessCall) {
+      if (AnnotationInfo.IsGlobal) {
+        StateId = WriteAutomata->AddState();
+        FSMUtility::addTransitionOnAbstractAccess(*WriteAutomata, StateId - 1,
+                                                  StateId, AnnotationInfo.Id);
+        WriteAutomata->SetFinal(StateId, 0);
+        return *WriteAutomata;
+      } else
+        llvm_unreachable("not supported in Treefuser2 yet!");
+    }
+
     bool First = true;
     for (auto &Entry : SplittedAccessPath) {
 
@@ -393,6 +409,15 @@ const FSM &AccessPath::getWriteAutomata() {
                                 Entry.second);
     }
     WriteAutomata->SetFinal(StateId, 0);
+
+    // if the last element is not primitive(int, ..etc)
+    if (!RecordsAnalyzer::isPrimitiveScaler(
+            SplittedAccessPath[SplittedAccessPath.size() - 1].second)) {
+      StateId = WriteAutomata->AddState();
+      FSMUtility::addAnyTransition(*WriteAutomata, StateId - 1, StateId);
+      FSMUtility::addEpsTransition(*WriteAutomata, StateId, StateId - 1);
+      WriteAutomata->SetFinal(StateId, 0);
+    }
   }
   return *WriteAutomata;
 }
@@ -402,6 +427,19 @@ const FSM &AccessPath::getReadAutomata() {
     ReadAutomata = new FSM();
     int StateId = ReadAutomata->AddState();
     ReadAutomata->SetStart(StateId /*0*/);
+
+    // Handle global strict access
+    if (IsStrictAccessCall) {
+      if (AnnotationInfo.IsGlobal) {
+        StateId = ReadAutomata->AddState();
+        FSMUtility::addTransitionOnAbstractAccess(*ReadAutomata, StateId - 1,
+                                                  StateId, AnnotationInfo.Id);
+
+        ReadAutomata->SetFinal(StateId, 0);
+        return *ReadAutomata;
+      } else
+        llvm_unreachable("not supported in Treefuser2 yet!");
+    }
 
     bool First = true;
     for (auto &Entry : SplittedAccessPath) {
@@ -419,6 +457,17 @@ const FSM &AccessPath::getReadAutomata() {
                                 Entry.second);
       ReadAutomata->SetFinal(StateId, 0);
     }
+
+    // if not primitive scaler its either a node or CXX  object
+    auto *LastField = SplittedAccessPath[SplittedAccessPath.size() - 1].second;
+    if (!RecordsAnalyzer::isPrimitiveScaler(LastField) && hasValuePart()) {
+      
+      StateId = ReadAutomata->AddState();
+      FSMUtility::addAnyTransition(*ReadAutomata, StateId - 1, StateId);
+      FSMUtility::addEpsTransition(*ReadAutomata, StateId, StateId - 1);
+      ReadAutomata->SetFinal(StateId, 0);
+    }
+   
   }
   return *ReadAutomata;
 }

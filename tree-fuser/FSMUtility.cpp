@@ -11,7 +11,9 @@
 #include <FSMUtility.h>
 #include <Logger.h>
 #include <cstdlib>
+#include <string>
 #include <vector>
+
 #define DEBUG_TYPE "fsm-utility"
 
 int FSMUtility::Counter = 2;
@@ -29,6 +31,12 @@ std::unordered_map<int, clang::ValueDecl *> FSMUtility::LabelToSymbol =
   ret[1] = nullptr;
   return ret;
 }();
+std::unordered_map<int, int> FSMUtility::SymbolToLabel_Abst =
+    std::unordered_map<int, int>();
+
+/// Maps strict access labels to their symbols
+std::unordered_map<int, int> FSMUtility::LabelToSymbol_Abst =
+    std::unordered_map<int, int>();
 
 FSM *FSMUtility::AnyClosureAutomata = nullptr;
 
@@ -42,11 +50,26 @@ void FSMUtility::addSymbol(clang::ValueDecl *ValueDecl) {
   }
 }
 
+void FSMUtility::addSymbol(int AbstractAccessId) {
+  if (!SymbolToLabel_Abst.count(AbstractAccessId)) {
+    SymbolToLabel_Abst[AbstractAccessId] = Counter;
+    LabelToSymbol_Abst[Counter] = AbstractAccessId;
+    Counter++;
+  }
+}
+
 void FSMUtility::addTransition(FSM &Automata, int Src, int Dest,
                                clang::ValueDecl *Access) {
   assert(SymbolToLabel.count(Access));
   Automata.AddArc(
       Src, fst::StdArc(SymbolToLabel[Access], SymbolToLabel[Access], 0, Dest));
+}
+
+void FSMUtility::addTransitionOnAbstractAccess(FSM &Automata, int Src, int Dest,
+                                               int Access) {
+  assert(SymbolToLabel_Abst.count(Access));
+  Automata.AddArc(Src, fst::StdArc(SymbolToLabel_Abst[Access],
+                                   SymbolToLabel_Abst[Access], 0, Dest));
 }
 
 void FSMUtility::addTraversedNodeTransition(FSM &Automata, int Src, int Dest) {
@@ -139,12 +162,20 @@ void FSMUtility::print(const FSM &Automata, std::string FileName,
           .c_str());
 
   // Replace labels with symbols
-  for (auto &Entry : LabelToSymbol)
+  for (auto &Entry : LabelToSymbol) {
     if (Entry.second) // avoid when nullptr (thisExpr)
       system((string("sed -i 's/") + std::to_string(Entry.first) + ":" +
               std::to_string(Entry.first) + "/" +
               Entry.second->getNameAsString() + "/g' " + FileName + ".dot")
                  .c_str());
+  }
+  for (auto &Entry : LabelToSymbol_Abst) {
+    if (Entry.second) // avoid when nullptr (thisExpr)
+      system((string("sed -i 's/") + std::to_string(Entry.first) + ":" +
+              std::to_string(Entry.first) + "/" + string("loc<") +
+              to_string(Entry.second) + ">" + "/g' " + FileName + ".dot")
+                 .c_str());
+  }
   system((string("sed -i 's/") + "1:1" + +"/" + "^root" + "/g' " + FileName +
           ".dot")
              .c_str());

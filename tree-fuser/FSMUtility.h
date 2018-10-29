@@ -34,16 +34,26 @@ private:
   /// Maps labels to their symbols
   static std::unordered_map<int, clang::ValueDecl *> LabelToSymbol;
 
+  /// Maps strict access symbols to their label
+  static std::unordered_map<int, int> SymbolToLabel_Abst;
+
+  /// Maps strict access labels to their symbols
+  static std::unordered_map<int, int> LabelToSymbol_Abst;
+
   static FSM *AnyClosureAutomata;
 
 public:
   /// Add a transition symbol to the language and give it a label
   static void addSymbol(clang::ValueDecl *ValueDecl);
 
+  static void addSymbol(int AbstractAccessId);
+
   /// Add a transition between two states on a specific transition symbol
   static void addTransition(FSM &Automata, int Src, int Dest,
                             clang::ValueDecl *);
 
+  static void addTransitionOnAbstractAccess(FSM &Automata, int Src,
+                                                 int Dest, int Access);
   /// Add epsilon (optional) transition between two states
   static void addEpsTransition(FSM &Automata, int Src, int Dest);
 
