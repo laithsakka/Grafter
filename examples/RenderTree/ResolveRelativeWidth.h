@@ -1,54 +1,72 @@
 #include "RenderTree.h"
 
-void Document::resolveRelativeWidths() { PageList->resolveRelativeWidths(); }
+__tree_traversal__ void Document::resolveRelativeWidths() {
+  COUNT PageList->resolveRelativeWidths();
+}
 
-void PageListEnd::resolveRelativeWidths() { Content->resolveRelativeWidths(); }
+__tree_traversal__ void PageListEnd::resolveRelativeWidths() {
+  COUNT Content->resolveRelativeWidths();
+}
 
-void PageListInner::resolveRelativeWidths() {
+__tree_traversal__ void PageListInner::resolveRelativeWidths() {
+  COUNT
   NextPage->resolveRelativeWidths();
   Content->resolveRelativeWidths();
 }
 
-void Page::resolveRelativeWidths() {
+__abstract_access__("(1,'w','global')") inline void LogError2() {
+  printf("ERROR: Cannot have WMode REL for page node");
+}
+__tree_traversal__ void Page::resolveRelativeWidths() {
+  COUNT
   if (WMode == REL) {
-    LogError("ERROR: Cannot have WMode REL for page node");
+    LogError2();
     return;
   }
   HorizList->resolveRelativeWidths(Width);
 }
 
-void HorizontalContainerListEnd::resolveRelativeWidths(int PWidth) {
+__tree_traversal__ void
+HorizontalContainerListEnd::resolveRelativeWidths(int PWidth) {
+  COUNT
   Content->resolveRelativeWidths(PWidth);
 }
 
-void HorizontalContainerListInner::resolveRelativeWidths(int PWidth) {
+__tree_traversal__ void
+HorizontalContainerListInner::resolveRelativeWidths(int PWidth) {
+  COUNT
   Next->resolveRelativeWidths(PWidth);
   Content->resolveRelativeWidths(PWidth);
 }
 
-void HorizontalContainer::resolveRelativeWidths(int PWidth) {
+__tree_traversal__ void HorizontalContainer::resolveRelativeWidths(int PWidth) {
+  COUNT
   if (WMode == REL) {
     Width = RelWidth * PWidth;
   }
   ElementsList->resolveRelativeWidths(Width);
 }
 
-void ElementListEnd::resolveRelativeWidths(int PWidth) {
+__tree_traversal__ void ElementListEnd::resolveRelativeWidths(int PWidth) {
+  COUNT;
   Content->resolveRelativeWidths(PWidth);
 }
 
-void ElementListInner::resolveRelativeWidths(int PWidth) {
+__tree_traversal__ void ElementListInner::resolveRelativeWidths(int PWidth) {
+  COUNT
   Content->resolveRelativeWidths(PWidth);
   Next->resolveRelativeWidths(PWidth);
 }
 
-void Element::resolveRelativeWidths(int PWidth) {
+__tree_traversal__ void Element::resolveRelativeWidths(int PWidth) {
+  COUNT
   if (WMode == REL) {
     Width = RelWidth * PWidth;
   }
 }
 
-void VerticalContainer::resolveRelativeWidths(int PWidth) {
+__tree_traversal__ void VerticalContainer::resolveRelativeWidths(int PWidth) {
+  COUNT
   if (WMode == REL) {
     Width = RelWidth * PWidth;
   }
