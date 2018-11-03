@@ -5,8 +5,10 @@
 #include "ResolveRelativeWidth.h"
 #include "SetFont.h"
 #include "SetPositions.h"
-
+#include <stdlib.h>
 #include <sys/time.h>
+#pragma clang diagnostic ignored "-Wwritable-strings"
+
 long long currentTimeInMilliseconds() {
   struct timeval tv;
   gettimeofday(&tv, NULL);
@@ -105,11 +107,11 @@ Page *buildPage() {
   return P;
 }
 
-Document *BuildDoc() {
+Document *BuildDoc(int N) {
   Document *Doc = new Document();
   auto *PageListNode = Doc->PageList = new PageListInner();
 
-  for (int i = 0; i < 1; i++) {
+  for (int i = 0; i < N-2; i++) {
     PageListNode->Content = buildPage();
     static_cast<PageListInner *>(PageListNode)->NextPage = new PageListInner();
     PageListNode = static_cast<PageListInner *>(PageListNode)->NextPage;
@@ -127,13 +129,15 @@ void render(Document *Doc) {
   Doc->setFont();
   Doc->computeHeights();
   Doc->setPositions();
-  Doc->print();
+  //Doc->print();
 }
-int main() {
-  Document *Doc = BuildDoc();
+int main(int argc, char** argv) {
+  int N = atoi(argv[1]);
+  Document *Doc = BuildDoc(N);
   auto t1 = currentTimeInMilliseconds();
+  #ifndef BUILD_ONLY
   render(Doc);
+  #endif
   auto t2 = currentTimeInMilliseconds();
   printf("duration is %llu\n", t2 - t1);
-  printf("%d\n", c);
 }
