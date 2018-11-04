@@ -26,18 +26,25 @@ ENV CLANG_SHA c1801030a9e8b29bcdde64113079495cd32d1537
 # https://github.com/llvm-mirror/llvm
 # https://github.com/llvm-mirror/clang
 
-# Fetching llvm/clang - OPTION 1:
-# Problem here - this seems to sometimes work and sometimes not
-#  ("does not allow request for unadvertised object")!
-#
-# Git doesn't support direct checkout of a commit:
-RUN mkdir llvm && cd llvm && git init && \
-    git remote add origin https://github.com/llvm-mirror/llvm && \
-    git fetch --depth 1 origin ${LLVM_SHA} && git checkout FETCH_HEAD
-RUN cd llvm/tools && mkdir clang && cd clang && git init && \
-   git remote add origin https://github.com/llvm-mirror/clang && \
-   git fetch --depth 1 origin ${CLANG_SHA} && git checkout FETCH_HEAD
+# Fetching llvm/clang -
+# # OPTION 1:
+# # Problem here - this seems to sometimes work and sometimes not
+# #  ("does not allow request for unadvertised object")!
+# #
+# # Git doesn't support direct checkout of a commit:
+# RUN mkdir llvm && cd llvm && git init && \
+#     git remote add origin https://github.com/llvm-mirror/llvm && \
+#     git fetch --depth 1 origin ${LLVM_SHA} && git checkout FETCH_HEAD
+# RUN cd llvm/tools && mkdir clang && cd clang && git init && \
+#    git remote add origin https://github.com/llvm-mirror/clang && \
+#    git fetch --depth 1 origin ${CLANG_SHA} && git checkout FETCH_HEAD
 
+# OPTION 2:  Download tarballs.
+RUN cd /tmp && wget -nv https://github.com/llvm-mirror/llvm/archive/${LLVM_SHA}.tar.gz && \
+    tar xf ${LLVM_SHA}.tar.gz && mv llvm-${LLVM_SHA} /build/llvm
+
+RUN cd /tmp && wget --progress=dot:giga https://github.com/llvm-mirror/clang/archive/${CLANG_SHA}.tar.gz && \
+    tar xf ${CLANG_SHA}.tar.gz && mv clang-${CLANG_SHA} /build/llvm/tools/clang
 
 
 # (2) TreeFuser
