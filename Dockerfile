@@ -12,7 +12,7 @@ RUN apt-get update -y && \
 RUN cd /tmp && \
     wget -nv http://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.6.9.tar.gz && \
     tar xf openfst-1.6.9.tar.gz && \
-    cd openfst-1.6.9 && ./configure && make -j && make install
+    cd openfst-1.6.9 && ./configure && make && make install
   # sha256=de5959c0c7decd920068aa4f9405769842b955719d857fd5d858fcacf0998bda
 
 RUN mkdir /build
@@ -47,10 +47,19 @@ RUN cd /tmp && wget --progress=dot:giga https://github.com/llvm-mirror/clang/arc
     tar xf ${CLANG_SHA}.tar.gz && mv clang-${CLANG_SHA} /build/llvm/tools/clang
 
 
+# ENV CLANG_TOOLS_EXTRA_SHA e936bbdce059a887ec69b05c8c701ff0c77d1f51
+# #RUN apt-get install -y subversion
+# # svn co http://llvm.org/svn/llvm-project/clang-tools-extra/trunk extra
+# RUN cd llvm/tools/clang/tools && \
+#     git clone https://git.llvm.org/git/clang-tools-extra.git && \
+#     cd clang-tools-extra && \
+#     git checkout ${CLANG_TOOLS_EXTRA_SHA}
+
+
 # (2) TreeFuser
 # ----------------------------------------
 
-ADD tree-fuser /build/llvm/tools/clang/tools/
+ADD tree-fuser /build/llvm/tools/clang/tools/tree-fuser
 
 RUN echo 'add_clang_subdirectory(tree-fuser)' >> /build/llvm/tools/clang/tools/CMakeLists.txt
 

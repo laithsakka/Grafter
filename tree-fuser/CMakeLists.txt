@@ -31,5 +31,6 @@ target_link_libraries(tree-fuser
   clangRewriteFrontend
   clangStaticAnalyzerFrontend
   clangTooling
-  /usr/local/lib/libfst.13.dylib
+#  /usr/local/lib/libfst.13.dylib
+  /usr/local/lib/libfst.so.13
   )
