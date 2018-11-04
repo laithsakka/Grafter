@@ -289,9 +289,41 @@ const FSM &StatementInfo::getExtendedGlobReadsAutomata() {
   if (!ExtendedGlobalReadsAutomata) {
     ExtendedGlobalReadsAutomata = new FSM();
 
-    for (auto *Stmt : EnclosingFunction->getStatements())
-      fst::Union(ExtendedGlobalReadsAutomata,
-                 Stmt->getGlobReadsAutomata(false));
+    auto *ChildRecord = getCalledChild()->getType()->getPointeeCXXRecordDecl();
+
+    auto CalledChildRecordInfo = RecordsAnalyzer::getRecordInfo(ChildRecord);
+
+    auto *CalledFunctionInfo =
+        FunctionsFinder::getFunctionInfo(getCalledFunction());
+
+    std::set<FunctionAnalyzer *> PossiblyCalledFunctions;
+    if (CalledFunctionInfo->isCXXMember() &&
+        dyn_cast<CXXMethodDecl>(getCalledFunction())->isVirtual()) {
+      PossiblyCalledFunctions.insert(CalledFunctionInfo);
+
+      // For each possible derived type add the corresponding called method
+      for (auto *DerivedRecord : RecordsAnalyzer::DerivedRecords[ChildRecord]) {
+        auto *CalledMethod = dyn_cast<CXXMethodDecl>(getCalledFunction())
+                                 ->getCorrespondingMethodInClass(DerivedRecord)
+                                 ->getDefinition();
+
+        assert(CalledMethod &&
+               "cannot find defintion (declared but not defined)");
+
+        PossiblyCalledFunctions.insert(
+            FunctionsFinder::getFunctionInfo(CalledMethod));
+      }
+
+    } else {
+      PossiblyCalledFunctions.insert(CalledFunctionInfo);
+    }
+
+    for (auto *F : PossiblyCalledFunctions) {
+      for (auto *Stmt : F->getStatements())
+        fst::Union(ExtendedGlobalReadsAutomata,
+                   Stmt->getGlobReadsAutomata(false));
+    }
+
     fst::ArcSort(ExtendedGlobalReadsAutomata,
                  fst::ILabelCompare<fst::StdArc>());
   }
@@ -303,10 +335,42 @@ const FSM &StatementInfo::getExtendedGlobWritesAutomata() {
   if (!ExtendedGlobalWritesAutomata) {
     ExtendedGlobalWritesAutomata = new FSM();
 
-    for (auto *Stmt : EnclosingFunction->getStatements()) {
-      fst::Union(ExtendedGlobalWritesAutomata,
-                 Stmt->getGlobWritesAutomata(false));
+    auto *ChildRecord = getCalledChild()->getType()->getPointeeCXXRecordDecl();
+
+    auto CalledChildRecordInfo = RecordsAnalyzer::getRecordInfo(ChildRecord);
+
+    auto *CalledFunctionInfo =
+        FunctionsFinder::getFunctionInfo(getCalledFunction());
+
+    std::set<FunctionAnalyzer *> PossiblyCalledFunctions;
+    if (CalledFunctionInfo->isCXXMember() &&
+        dyn_cast<CXXMethodDecl>(getCalledFunction())->isVirtual()) {
+      PossiblyCalledFunctions.insert(CalledFunctionInfo);
+
+      // For each possible derived type add the corresponding called method
+      for (auto *DerivedRecord : RecordsAnalyzer::DerivedRecords[ChildRecord]) {
+        auto *CalledMethod = dyn_cast<CXXMethodDecl>(getCalledFunction())
+                                 ->getCorrespondingMethodInClass(DerivedRecord)
+                                 ->getDefinition();
+
+        assert(CalledMethod &&
+               "cannot find defintion (declared but not defined)");
+
+        PossiblyCalledFunctions.insert(
+            FunctionsFinder::getFunctionInfo(CalledMethod));
+      }
+
+    } else {
+      PossiblyCalledFunctions.insert(CalledFunctionInfo);
     }
+
+    for (auto *F : PossiblyCalledFunctions) {
+      for (auto *Stmt : F->getStatements()) {
+        fst::Union(ExtendedGlobalWritesAutomata,
+                   Stmt->getGlobWritesAutomata(false));
+      }
+    }
+
     fst::ArcSort(ExtendedGlobalWritesAutomata,
                  fst::ILabelCompare<fst::StdArc>());
   }

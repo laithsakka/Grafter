@@ -32,7 +32,7 @@ bool FunctionsFinder::VisitFunctionDecl(clang::FunctionDecl *FuncDeclaration) {
   FunctionAnalyzer *FuncInfo = new FunctionAnalyzer(FuncDeclaration);
 
   FunctionsInformation[FuncDeclaration] = FuncInfo;
- // LLVM_DEBUG(if (FuncInfo->isValidFuse()) { FuncInfo->dump(); });
+  // LLVM_DEBUG(if (FuncInfo->isValidFuse()) { FuncInfo->dump(); });
   return true;
 }
 
@@ -75,7 +75,8 @@ void FunctionsFinder::findFunctions(const ASTContext &Context) {
                       ->getCorrespondingMethodInClass(PossibleDerviedType);
               if (!isValidFuse(CalledOverrideFunction)) {
                 ContainingFunctionInfo->setValidFuse(false);
-                ContainingFunctionInfo->getFunctionDecl()->dump();
+                CalledOverrideFunction->dump();
+                //   ContainingFunctionInfo->getFunctionDecl()->dump();
                 // CalledFunction->dump();
                 KeepLooping = true;
                 break;
@@ -84,7 +85,7 @@ void FunctionsFinder::findFunctions(const ASTContext &Context) {
           }
           if (!isValidFuse(CalledFunction)) {
             ContainingFunctionInfo->setValidFuse(false);
-            ContainingFunctionInfo->getFunctionDecl()->dump();
+            //ContainingFunctionInfo->getFunctionDecl()->dump();
             // CalledFunction->dump();
             KeepLooping = true;
             break;

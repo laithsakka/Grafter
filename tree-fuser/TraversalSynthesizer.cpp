@@ -99,8 +99,12 @@ std::string TraversalSynthesizer::createName(
 
   for (auto *FuncDecl : ParticipatingTraversals) {
     FuncDecl = FuncDecl->getDefinition();
-    if (!FunDeclToNameId.count(FuncDecl))
+    if (!FunDeclToNameId.count(FuncDecl)) {
       FunDeclToNameId[FuncDecl] = Count++;
+      Logger::getStaticLogger().logInfo(
+          "Function:" + FuncDecl->getQualifiedNameAsString() + "==>" +
+          to_string(Count - 1) + "\n");
+    }
 
     Output += +"F" + std::to_string(FunDeclToNameId[FuncDecl]);
   }
@@ -279,6 +283,9 @@ void TraversalSynthesizer::setCallPart(
     NextCallName = createName(NexTCallExpressions, false, nullptr);
   else
     NextCallName = getVirtualStub(NexTCallExpressions);
+
+  // if (NextCallName == "__virtualStub14")
+  //   assert(false);
 
   Transformer->performFusion(NexTCallExpressions, /*IsTopLevel*/ false,
                              nullptr);
@@ -554,16 +561,16 @@ void TraversalSynthesizer::WriteUpdates(
 
   // add forward declarations
   for (auto &SynthesizedFunction : SynthesizedFunctions) {
-    Rewriter.InsertText(EnclosingFunctionDecl->getLocStart(),
-                        (SynthesizedFunction.second->ForwardDeclaration) +
-                            string(";\n"));
+    Rewriter.InsertText(
+        EnclosingFunctionDecl->getTypeSourceInfo()->getTypeLoc().getBeginLoc(),
+        (SynthesizedFunction.second->ForwardDeclaration) + string(";\n"));
   }
 
   for (auto &SynthesizedFunction : SynthesizedFunctions) {
-    Rewriter.InsertText(EnclosingFunctionDecl->getLocStart(),
-                        (SynthesizedFunction.second->ForwardDeclaration +
-                         "\n{\n" + SynthesizedFunction.second->Body +
-                         "\n};\n"));
+    Rewriter.InsertText(
+        EnclosingFunctionDecl->getTypeSourceInfo()->getTypeLoc().getBeginLoc(),
+        (SynthesizedFunction.second->ForwardDeclaration + "\n{\n" +
+         SynthesizedFunction.second->Body + "\n};\n"));
   }
 
   StatementPrinter Printer;
@@ -610,13 +617,13 @@ void TraversalSynthesizer::WriteUpdates(
   } else {
     if (CallsExpressions[0]->getStmtClass() ==
         clang::Stmt::CXXMemberCallExprClass) {
-      NewCall +=
-          Printer.printStmt(CallsExpressions[0]
-                                ->child_begin()
-                                ->child_begin()
-                                ->IgnoreImplicit(),
-                            ASTContext->getSourceManager(), nullptr, "", -1) +
-          "->" + NextCallName + "(";
+      NewCall += Printer.printStmt(CallsExpressions[0]
+                                       ->child_begin()
+                                       ->child_begin()
+                                       ->IgnoreImplicit(),
+                                   ASTContext->getSourceManager(), nullptr, "",
+                                   -1, false) +
+                 "->" + NextCallName + "(";
     } else if (CallsExpressions[0]->getStmtClass() ==
                clang::Stmt::CallExprClass) {
 
@@ -663,6 +670,7 @@ void TraversalSynthesizer::WriteUpdates(
   for (auto &Entry : Stubs) {
     auto &Calls = Entry.first;
     auto &StubName = Entry.second;
+
     AccessPath AP = extractVisitedChild(Calls[0]);
 
     auto *CalledChildType = AP.getDeclAtIndex(AP.SplittedAccessPath.size() - 1)
@@ -716,19 +724,25 @@ void TraversalSynthesizer::WriteUpdates(
         (Params == "" ? "" : ", ") + string("unsigned int truncate_flags");
     Args += ", " + toBinaryString(x);
     auto LambdaFun = [&](const CXXRecordDecl *DerivedType) {
+      assert(Rewriter::isRewritable(DerivedType->getLocEnd()));
       Rewriter.InsertText(
-          DerivedType->getLocEnd(),
+          DerivedType->getDefinition()->getLocEnd(),
           (DerivedType == CalledChildType ? "virtual" : "") + string(" void ") +
               StubName + "(" + Params + ")" +
               (DerivedType == CalledChildType ? "" : "override") + ";\n");
 
-      Rewriter.InsertText(EnclosingFunctionDecl->getLocStart(),
-                          "void " + DerivedType->getNameAsString() +
-                              "::" + StubName + "(" + Params + "){" +
-                              createName(Calls, true, DerivedType) + "(" +
-                              Args +
-                              ");"
-                              "}\n");
+      Rewriter.InsertTextAfter(EnclosingFunctionDecl->getAsFunction()
+                                   ->getDefinition()
+                                   ->getTypeSourceInfo()
+                                   ->getTypeLoc()
+                                   .getBeginLoc(),
+                               "void " + DerivedType->getNameAsString() +
+                                   "::" + StubName + "(" + Params + "){" +
+                                   createName(Calls, true, DerivedType) + "(" +
+                                   Args +
+                                   ");"
+                                   "}\n");
+
       return;
     };
     LambdaFun(CalledChildType);

@@ -179,7 +179,7 @@ void DependenceGraph::dump() {
 // }
 
 void DependenceGraph::dumpMergeInfo() {
-  outs() << "Dumping Merge Info\n";
+  Logger::getStaticLogger().logDebug("Dumping Merge Info\n");
   unordered_map<MergeInfo *, bool> Visited;
   for (auto *Node : Nodes) {
     if (!Node->StatementInfo->isCallStmt())

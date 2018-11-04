@@ -145,7 +145,7 @@ private:
   /// rootNode
   bool RootCasedPerTraversals = false;
 
-  /// The number of the traverals in the synthesized function
+  /// The number of the traversals in the synthesized function
   int TraversalsCount;
 
 public:

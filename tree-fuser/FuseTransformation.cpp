@@ -12,6 +12,20 @@
 #include "DependenceAnalyzer.h"
 #include "DependenceGraph.h"
 
+extern llvm::cl::OptionCategory TreeFuserCategory;
+namespace opts {
+llvm::cl::opt<unsigned>
+    MaxMergedInstances("max-merged-f",
+                       cl::desc("a maximum number of calls for the same "
+                                "function that can be fused together"),
+                       cl::init(5), cl::ZeroOrMore, cl::cat(TreeFuserCategory));
+llvm::cl::opt<unsigned>
+    MaxMergedNodes("max-merged-n",
+                   cl::desc("a maximum number of calls for the same "
+                            "function that can be fused together"),
+                   cl::init(5), cl::ZeroOrMore, cl::cat(TreeFuserCategory));
+} // namespace opts
+
 bool FusionCandidatesFinder::VisitFunctionDecl(clang::FunctionDecl *FuncDecl) {
   CurrentFuncDecl = FuncDecl;
   return true;
@@ -154,13 +168,11 @@ void FusionTransformer::performFusion(
       assert(!DepGraph->hasCycle() && "dep graph has cycle");
       assert(!DepGraph->hasWrongFuse() && "dep graph has wrong merging");
 
-      // Generate a topological sort
-      Logger::getStaticLogger().logDebug("Generating topological sort");
-
       std::vector<DG_Node *> ToplogicalOrder = findToplogicalOrder(DepGraph);
 
       Synthesizer->generateWriteBackInfo(Candidate, ToplogicalOrder, HasVirtual,
                                          HasCXXMethod, DerivedType);
+      Logger::getStaticLogger().logDebug("Generation Done ");
     }
   };
   if (HasVirtual) {
@@ -172,6 +184,7 @@ void FusionTransformer::performFusion(
     fuseFunctions(nullptr);
 
   if (IsTopLevel) {
+
     Synthesizer->WriteUpdates(Candidate, EnclosingFunctionDecl);
   }
 }
@@ -219,7 +232,27 @@ void FusionTransformer::performGreedyFusion(DependenceGraph *DepGraph) {
 
         DepGraph->merge(CallNodes[i], CallNodes[j]);
 
-        if (DepGraph->hasCycle() ||
+        auto ReachMaxMerged = [&](MergeInfo *Info) {
+          unordered_map<FunctionDecl *, int> Counter;
+          for (auto *Node : Info->MergedNodes) {
+            Counter[Node->getStatementInfo()
+                        ->getCalledFunction()
+                        ->getDefinition()]++;
+            auto Count = Counter[Node->getStatementInfo()
+                                     ->getCalledFunction()
+                                     ->getDefinition()];
+
+            if (Count > opts::MaxMergedInstances) {
+              return true;
+            }
+          }
+          return false;
+        };
+
+        if (CallNodes[i]->getMergeInfo()->MergedNodes.size() >
+                opts::MaxMergedNodes ||
+            ReachMaxMerged(CallNodes[i]->getMergeInfo()) ||
+            DepGraph->hasCycle() ||
             DepGraph->hasWrongFuse(CallNodes[i]->getMergeInfo())) {
           LLVM_DEBUG(outs()
                      << "rollback on merge, " << DepGraph->hasCycle() << ","
