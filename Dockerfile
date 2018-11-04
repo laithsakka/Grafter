@@ -12,7 +12,7 @@ RUN apt-get update -y && \
 RUN cd /tmp && \
     wget -nv http://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.6.9.tar.gz && \
     tar xf openfst-1.6.9.tar.gz && \
-    cd openfst-1.6.9 && ./configure && make -j && make install
+    cd openfst-1.6.9 && ./configure && make && make install
   # sha256=de5959c0c7decd920068aa4f9405769842b955719d857fd5d858fcacf0998bda
 
 RUN mkdir /build
