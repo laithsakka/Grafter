@@ -65,7 +65,7 @@ private:
   int TraversalId;
 
   /// Pointer to the statment information associated with the stored node
-  StatementInfo *StatementInfo;
+  StatementInfo *StmtInfo;
 
   /// Indicates if this node is a merged call node
   bool IsMerged = false;
@@ -81,7 +81,7 @@ public:
   }
 
   class StatementInfo *getStatementInfo() const {
-    return StatementInfo;
+    return StmtInfo;
   }
 
   std::unordered_map<DG_Node *, DependenceInfo> &getSuccessors() {
@@ -96,8 +96,8 @@ public:
 
   int getTraversalId() const { return TraversalId; }
 
-  DG_Node(class StatementInfo *StmtInfo, int TraversalId_) {
-    StatementInfo = StmtInfo;
+  DG_Node(class StatementInfo *StmtInfo_, int TraversalId_) {
+    StmtInfo = StmtInfo_;
     TraversalId = TraversalId_;
   }
 

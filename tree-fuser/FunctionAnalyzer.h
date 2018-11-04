@@ -99,6 +99,7 @@ public:
     if (isCXXMember()) {
       return dyn_cast<clang::CXXMethodDecl>(FuncDeclNode)->isVirtual();
     }
+    llvm_unreachable("not expected");
   }
 
   clang::CXXMethodDecl *getDeclAsCXXMethod() {
@@ -106,6 +107,7 @@ public:
       return nullptr;
     if (isCXXMember())
       return dyn_cast<clang::CXXMethodDecl>(FuncDeclNode);
+    llvm_unreachable("not expected");
   }
 
   void addAliasing(clang::ValueDecl *Decl, AccessPath *Ap) {

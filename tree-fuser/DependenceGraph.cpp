@@ -129,17 +129,17 @@ void DependenceGraph::dump() {
   for (auto *Node : Nodes) {
     Logger::getStaticLogger().logDebug(
         "TraversalId:" + to_string(Node->TraversalId) +
-        ",stmtId:" + to_string(Node->StatementInfo->getStatementId()) +
-        ",address:" + to_string((long long)(Node->StatementInfo)) +
-        ",body:" + string(Node->StatementInfo->Stmt->getStmtClassName()));
+        ",stmtId:" + to_string(Node->getStatementInfo()->getStatementId()) +
+        ",address:" + to_string((long long)(Node->getStatementInfo())) +
+        ",body:" + string(Node->getStatementInfo()->Stmt->getStmtClassName()));
 
     for (auto &Successor : Node->getSuccessors()) {
       auto *SuccNode = Successor.first;
       auto &SuccDep = Successor.second;
       Logger::getStaticLogger().logDebug(
           "dep To :[" + to_string(SuccNode->TraversalId) + "|" +
-          to_string(SuccNode->StatementInfo->getStatementId()) + "|" +
-          to_string((long long)(SuccNode->StatementInfo)) + "], Type:[" +
+          to_string(SuccNode->getStatementInfo()->getStatementId()) + "|" +
+          to_string((long long)(SuccNode->getStatementInfo())) + "], Type:[" +
           to_string(SuccDep.CONTROL_DEP) + "|" + to_string(SuccDep.GLOBAL_DEP) +
           "|" + to_string(SuccDep.LOCAL_DEP) + "|" +
           to_string(SuccDep.ONTREE_DEP) + "|" +
@@ -182,16 +182,16 @@ void DependenceGraph::dumpMergeInfo() {
   Logger::getStaticLogger().logDebug("Dumping Merge Info\n");
   unordered_map<MergeInfo *, bool> Visited;
   for (auto *Node : Nodes) {
-    if (!Node->StatementInfo->isCallStmt())
+    if (!Node->getStatementInfo()->isCallStmt())
       continue;
 
     if (!Node->isMerged()) {
       Logger::getStaticLogger().logDebug(
           "unmerged call Node to child:" +
-          Node->StatementInfo->getCalledChild()->getNameAsString() + ":[" +
+          Node->getStatementInfo()->getCalledChild()->getNameAsString() + ":[" +
           to_string(Node->TraversalId) + "|" +
-          to_string(Node->StatementInfo->getStatementId()) + "|" +
-          to_string((long long)(Node->StatementInfo)));
+          to_string(Node->getStatementInfo()->getStatementId()) + "|" +
+          to_string((long long)(Node->getStatementInfo())));
       continue;
     }
 
@@ -200,15 +200,15 @@ void DependenceGraph::dumpMergeInfo() {
       Visited[NodeMergeInfo] = true;
       Logger::getStaticLogger().logDebug("merge info :\nmerged child :" +
                                          (*NodeMergeInfo->MergedNodes.begin())
-                                             ->StatementInfo->getCalledChild()
+                                             ->getStatementInfo()->getCalledChild()
                                              ->getNameAsString() +
                                          " participating Nodes:");
 
       for (auto *MergedNode : NodeMergeInfo->MergedNodes) {
         Logger::getStaticLogger().logDebug(
             "Node :[" + to_string(MergedNode->TraversalId) + "|" +
-            to_string(MergedNode->StatementInfo->getStatementId()) + "|" +
-            to_string((long long)(MergedNode->StatementInfo)));
+            to_string(MergedNode->getStatementInfo()->getStatementId()) + "|" +
+            to_string((long long)(MergedNode->getStatementInfo())));
       }
     }
   }
@@ -246,11 +246,11 @@ void DependenceGraph::addDependency(DEPENDENCE_TYPE DependenceType,
 bool DependenceGraph::hasWrongFuse(MergeInfo *MergeInfo) {
   std::set<int> TraversalIds;
   clang::FieldDecl *CalledChild =
-      (*MergeInfo->MergedNodes.begin())->StatementInfo->getCalledChild();
+      (*MergeInfo->MergedNodes.begin())->getStatementInfo()->getCalledChild();
 
   // check that they all have the same called child
   for (auto *MergedNode : MergeInfo->MergedNodes) {
-    if (MergedNode->StatementInfo->getCalledChild() != CalledChild)
+    if (MergedNode->getStatementInfo()->getCalledChild() != CalledChild)
       return true;
 
     TraversalIds.insert(MergedNode->TraversalId);
@@ -344,16 +344,16 @@ void DependenceGraph::printCyclePath(stack<DG_Node *> CyclePath) {
       for (auto *MergedNode : TopNode->MergeInfo->MergedNodes) {
         Logger::getStaticLogger().logDebug(
             "\tNode :[" + to_string(MergedNode->getTraversalId()) + "|" +
-            to_string(MergedNode->StatementInfo->getStatementId()) + "|" +
-            to_string((long long)(MergedNode->StatementInfo)));
+            to_string(MergedNode->getStatementInfo()->getStatementId()) + "|" +
+            to_string((long long)(MergedNode->getStatementInfo())));
       }
     } else {
       Logger::getStaticLogger().logDebug(
           "-single Node :[" + to_string((TopNode)->getTraversalId()) + "|" +
-          to_string((TopNode)->StatementInfo->getStatementId()) + "|" +
-          to_string((long long)((TopNode)->StatementInfo)));
+          to_string((TopNode)->getStatementInfo()->getStatementId()) + "|" +
+          to_string((long long)((TopNode)->getStatementInfo())));
       Logger::getStaticLogger().logDebug(
-          TopNode->StatementInfo->Stmt->getStmtClassName());
+          TopNode->getStatementInfo()->Stmt->getStmtClassName());
     }
   }
 }
@@ -378,8 +378,8 @@ bool DependenceGraph::hasCycle() {
 void DependenceGraph::mergeAllCalls() {
   std::unordered_map<clang::FieldDecl *, vector<DG_Node *>> ChildCallers;
   for (auto *Node : Nodes) {
-    if (Node->StatementInfo->isCallStmt()) {
-      ChildCallers[Node->StatementInfo->getCalledChild()].push_back(Node);
+    if (Node->getStatementInfo()->isCallStmt()) {
+      ChildCallers[Node->getStatementInfo()->getCalledChild()].push_back(Node);
     }
   }
 
