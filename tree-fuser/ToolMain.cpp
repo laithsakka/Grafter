@@ -22,12 +22,14 @@
 #include <string>
 #include <unistd.h>
 
-static llvm::cl::OptionCategory OptionCategory("");
+llvm::cl::OptionCategory TreeFuserCategory("TreeFuser options:");
+
 static cl::extrahelp CommonHelp(CommonOptionsParser::HelpMessage);
 static cl::extrahelp MoreHelp("");
 
 int main(int argc, const char **argv) {
-  clang::tooling::CommonOptionsParser OptionsParser(argc, argv, OptionCategory);
+  clang::tooling::CommonOptionsParser OptionsParser(argc, argv,
+                                                    TreeFuserCategory);
   clang::tooling::ClangTool ClangTool(OptionsParser.getCompilations(),
                                       OptionsParser.getSourcePathList());
 

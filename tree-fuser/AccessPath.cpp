@@ -152,7 +152,8 @@ AccessPath::AccessPath(clang::Expr *SourceExpression,
 
   if (isOnTree()) {
     for (int I = 1; I < getValueStartIndex(); I++) {
-      if ((!EnclosingFunction->isInChildList(SplittedAccessPath[I].second))) {
+      if (!hasChildAnnotation(
+              dyn_cast<clang::FieldDecl>(SplittedAccessPath[I].second))) {
         Logger::getStaticLogger().logError(
             "on-tree access-path contains invalid tree access symbol");
         SplittedAccessPath[I].second->dump();
@@ -167,6 +168,8 @@ AccessPath::AccessPath(clang::Expr *SourceExpression,
     for (int I = getValueStartIndex(); I < SplittedAccessPath.size(); I++) {
       if (getDeclAtIndex(I)->getType()->isPointerType() ||
           getDeclAtIndex(I)->getType()->isReferenceType()) {
+        this->dump();
+        getDeclAtIndex(I)->dump();
         Logger::getStaticLogger().logError(
             "access-path have pointer/reference in value part");
         IsLegal = false;
@@ -237,10 +240,14 @@ bool AccessPath::onlyUses(const clang::VarDecl *RootDecl,
     return false;
 
   for (int i = 1; i < SplittedAccessPath.size(); i++) {
-    if (!ChildrenSymbols.count(
-            dyn_cast<clang::FieldDecl>(SplittedAccessPath[i].second))) {
+    if (!hasChildAnnotation(
+            dyn_cast<clang::FieldDecl>(SplittedAccessPath[i].second)))
       return false;
-    }
+    // if (!ChildrenSymbols.count(
+    //         dyn_cast<clang::FieldDecl>(SplittedAccessPath[i].second))) {
+    //   assert(false);
+    //   return false;
+    // }
   }
 
   return true;
@@ -277,10 +284,13 @@ int AccessPath::getDepth() const { return SplittedAccessPath.size(); }
 
 void AccessPath::setValueStartIndex() {
 
+  // a child a
   for (unsigned I = 0; I < SplittedAccessPath.size(); I++) {
-    auto &ValueDecl = SplittedAccessPath[I].second;
-    if (EnclosingFunction->TraversedNodeDecl != ValueDecl &&
-        !EnclosingFunction->isInChildList(ValueDecl)) {
+    auto *ValueDecl = SplittedAccessPath[I].second;
+    if (EnclosingFunction->TraversedNodeDecl != ValueDecl) {
+      clang::FieldDecl *Field = dyn_cast<clang::FieldDecl>(ValueDecl);
+      if (Field && hasChildAnnotation(Field))
+        continue;
       ValueStartIndex = I;
       break;
     }
@@ -461,13 +471,12 @@ const FSM &AccessPath::getReadAutomata() {
     // if not primitive scaler its either a node or CXX  object
     auto *LastField = SplittedAccessPath[SplittedAccessPath.size() - 1].second;
     if (!RecordsAnalyzer::isPrimitiveScaler(LastField) && hasValuePart()) {
-      
+
       StateId = ReadAutomata->AddState();
       FSMUtility::addAnyTransition(*ReadAutomata, StateId - 1, StateId);
       FSMUtility::addEpsTransition(*ReadAutomata, StateId, StateId - 1);
       ReadAutomata->SetFinal(StateId, 0);
     }
-   
   }
   return *ReadAutomata;
 }

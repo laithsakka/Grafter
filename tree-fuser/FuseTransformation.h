@@ -76,7 +76,7 @@ public:
                      bool IsTopLevel, clang::FunctionDecl *EnclosingFunctionDecl
                      /*just needed fo top level*/);
 
-  /// Comming soruce code updates to the source files
+  /// Commiting source code updates to the source files
   void overwriteChangedFiles() { Rewriter.overwriteChangedFiles(); }
 
   void performGreedyFusion(DependenceGraph *DepGraph);

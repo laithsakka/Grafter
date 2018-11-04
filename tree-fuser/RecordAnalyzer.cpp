@@ -82,9 +82,6 @@ bool RecordsAnalyzer::VisitCXXRecordDecl(
     return true;
   }
 
-  Logger::getStaticLogger().logInfo("analyzing " +
-                                    RecordDecl->getNameAsString() + "\n");
-
   RecordsAnalyzer::RecordsInfoGlobalStore[Ctx][RecordDecl] = RecordInformation;
 
   if (!hasTreeAnnotation(RecordDecl)) {

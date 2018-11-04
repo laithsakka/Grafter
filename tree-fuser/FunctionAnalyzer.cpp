@@ -332,9 +332,9 @@ bool FunctionAnalyzer::checkFuseSema() {
     auto *Call = dyn_cast<clang::CallExpr>(Stmt);
     if (!hasFuseAnnotation(Call->getCalleeDecl()->getAsFunction())) {
       if (!hasStrictAccessAnnotation(Call->getCalleeDecl())) {
-        Logger::getStaticLogger().logError(
+        Stmt->dump();
+        return Logger::getStaticLogger().logError(
             "fuse methods body not allowed to have function calls");
-        return false;
       }
     }
 
@@ -432,7 +432,7 @@ bool FunctionAnalyzer::collectAccessPath_VisitBinaryOperator(
             getTraversedNodeDecl(),
             RecordsAnalyzer::getRecordInfo(getTraversedTreeTypeDecl())
                 .getRecursiveFields())) {
-
+   
       Logger::getStaticLogger().logError(
           "FunctionAnalyzer::collectAccessPath_VisitBinaryOperator: "
           "new statement LHS is not legal");
@@ -707,10 +707,10 @@ bool FunctionAnalyzer::collectAccessPath_VisitIfStmt(clang::IfStmt *Stmt) {
 
     } else {
       if (!collectAccessPath_handleSubExpr(Cond)) {
-        Logger::getStaticLogger().logError(
+        Cond->dump();
+        return Logger::getStaticLogger().logError(
             "FunctionAnalyzer::collectAccessPath_VisitIfStmt  unsupported "
             "expression inside condition part");
-        return false;
       }
     }
   }
