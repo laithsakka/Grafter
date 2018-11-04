@@ -19,8 +19,8 @@ RUN mkdir /build
 WORKDIR /build
 
 # Current Master on both [2018.11.04]:
-ENV LLVM_SHA 88f96230a8449abcfd8d6e403071ae01374e2b66
-ENV CLANG_SHA c1801030a9e8b29bcdde64113079495cd32d1537
+ENV LLVM_SHA  97d7bcd5c024ee6aec4eecbc723bb6d4f4c3dc3d
+ENV CLANG_SHA 6093fea79d46ed6f9846e7f069317ae996149c69
 
 # https://git.llvm.org/git/llvm.git/
 # https://github.com/llvm-mirror/llvm
