@@ -20,11 +20,10 @@ WORKDIR /build
 
 # Current Master on both [2018.11.04]:
 ENV LLVM_SHA 88f96230a8449abcfd8d6e403071ae01374e2b66
-ENV CLANG_SHA c1801030a9e8b29bcdde64113079495cd32d1537c1801030a9e8b29bcdde64113079495cd32d1537
+ENV CLANG_SHA c1801030a9e8b29bcdde64113079495cd32d1537
 
 # https://git.llvm.org/git/llvm.git/
 # https://github.com/llvm-mirror/llvm
-
 # https://github.com/llvm-mirror/clang
 
 # Fetching llvm/clang - OPTION 1:
@@ -33,7 +32,7 @@ ENV CLANG_SHA c1801030a9e8b29bcdde64113079495cd32d1537c1801030a9e8b29bcdde641130
 #
 # Git doesn't support direct checkout of a commit:
 RUN mkdir llvm && cd llvm && git init && \
-    git remote add origin https://git.llvm.org/git/llvm.git/ && \
+    git remote add origin https://github.com/llvm-mirror/llvm && \
     git fetch --depth 1 origin ${LLVM_SHA} && git checkout FETCH_HEAD
 RUN cd llvm/tools && mkdir clang && cd clang && git init && \
    git remote add origin https://github.com/llvm-mirror/clang && \
