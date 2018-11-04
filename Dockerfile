@@ -46,11 +46,20 @@ RUN cd /tmp && wget -nv https://github.com/llvm-mirror/llvm/archive/${LLVM_SHA}.
 RUN cd /tmp && wget --progress=dot:giga https://github.com/llvm-mirror/clang/archive/${CLANG_SHA}.tar.gz && \
     tar xf ${CLANG_SHA}.tar.gz && mv clang-${CLANG_SHA} /build/llvm/tools/clang
 
+ENV CLANG_TOOLS_EXTRA_SHA e936bbdce059a887ec69b05c8c701ff0c77d1f51
+
+#RUN apt-get install -y subversion
+# svn co http://llvm.org/svn/llvm-project/clang-tools-extra/trunk extra
+RUN cd llvm/tools/clang/tools && \
+    git clone https://git.llvm.org/git/clang-tools-extra.git && \
+    cd clang-tools-extra && \
+    git checkout ${CLANG_TOOLS_EXTRA_SHA}
+
 
 # (2) TreeFuser
 # ----------------------------------------
 
-ADD tree-fuser /build/llvm/tools/clang/tools/
+ADD tree-fuser /build/llvm/tools/clang/tools/tree-fuser
 
 RUN echo 'add_clang_subdirectory(tree-fuser)' >> /build/llvm/tools/clang/tools/CMakeLists.txt
 
