@@ -17,7 +17,7 @@ std::vector<DG_Node *> MergeInfo::getCallsOrdered() {
   for (auto *Node : MergedNodes) {
     Res.push_back(Node);
   }
-  sort(Res.begin(), Res.end(), [](const DG_Node *a, const DG_Node *b) {
+  std::sort(Res.begin(), Res.end(), [](const DG_Node *a, const DG_Node *b) {
     if (a->getTraversalId() != b->getTraversalId())
       return a->getTraversalId() < b->getTraversalId();
     else
