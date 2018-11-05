@@ -71,13 +71,13 @@ private:
   bool IsMerged = false;
 
   /// Store merge information if the node is merged
-  MergeInfo *MergeInfo = nullptr;
+  MergeInfo *Info = nullptr;
 
 public:
   bool isRootNode();
 
   struct MergeInfo *getMergeInfo() const {
-    return MergeInfo;
+    return Info;
   }
 
   class StatementInfo *getStatementInfo() const {

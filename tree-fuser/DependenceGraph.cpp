@@ -38,11 +38,11 @@ bool DG_Node::allPredesVisited(
   }
 
   // Handle Merged Nodes
-  for (auto *MergedNode : MergeInfo->MergedNodes) {
+  for (auto *MergedNode : Info->MergedNodes) {
     for (auto &Dependency : MergedNode->getPredecessors()) {
 
       // Excluded internal dependences between merged Nodes
-      if (MergeInfo->isInMergedNodes(Dependency.first))
+      if (Info->isInMergedNodes(Dependency.first))
         continue;
 
       if (!VisitedNodes[Dependency.first])
@@ -56,7 +56,7 @@ bool DG_Node::isRootNode() {
   if (!IsMerged)
     return getPredecessors().size() == 0;
 
-  for (auto *MergedNode : MergeInfo->MergedNodes) {
+  for (auto *MergedNode : Info->MergedNodes) {
     if (MergedNode->getPredecessors().size() != 0)
       return false;
   }
@@ -74,24 +74,24 @@ DG_Node *DependenceGraph::createNode(pair<StatementInfo *, int> Value) {
 void DependenceGraph::merge(DG_Node *Node1, DG_Node *Node2) {
   if (Node1->isMerged() && Node2->isMerged()) {
 
-    MergeInfo *Tmp = Node2->MergeInfo;
+    MergeInfo *Tmp = Node2->Info;
 
-    for (auto *Node : Node2->MergeInfo->MergedNodes) {
-      Node1->MergeInfo->MergedNodes.insert(Node);
-      Node->MergeInfo = Node1->MergeInfo;
+    for (auto *Node : Node2->Info->MergedNodes) {
+      Node1->Info->MergedNodes.insert(Node);
+      Node->Info = Node1->Info;
     }
     delete Tmp;
 
   }
 
   else if (Node1->isMerged() && !Node2->isMerged()) {
-    Node2->MergeInfo = Node1->MergeInfo;
-    Node1->MergeInfo->MergedNodes.insert(Node2);
+    Node2->Info = Node1->Info;
+    Node1->Info->MergedNodes.insert(Node2);
     Node2->IsMerged = true;
 
   } else if (!Node1->isMerged() && Node2->isMerged()) {
-    Node1->MergeInfo = Node2->MergeInfo;
-    Node2->MergeInfo->MergedNodes.insert(Node1);
+    Node1->Info = Node2->Info;
+    Node2->Info->MergedNodes.insert(Node1);
     Node1->IsMerged = true;
 
   } else if (!Node1->isMerged() && !Node2->isMerged()) {
@@ -101,23 +101,23 @@ void DependenceGraph::merge(DG_Node *Node1, DG_Node *Node2) {
 
     Tmp->MergedNodes.insert(Node1);
     Tmp->MergedNodes.insert(Node2);
-    Node1->MergeInfo = Tmp;
-    Node2->MergeInfo = Tmp;
+    Node1->Info = Tmp;
+    Node2->Info = Tmp;
   }
 }
 
 void DependenceGraph::unmerge(DG_Node *Node) {
-  MergeInfo *NodeMergeInfo = Node->MergeInfo;
+  MergeInfo *NodeMergeInfo = Node->Info;
 
   // unmerge current Node
   Node->IsMerged = false;
-  Node->MergeInfo = nullptr;
+  Node->Info = nullptr;
   NodeMergeInfo->MergedNodes.erase(Node);
 
   // special case if unmerging resulted in single Node
   if (NodeMergeInfo->MergedNodes.size() == 1) {
     (*NodeMergeInfo->MergedNodes.begin())->IsMerged = false;
-    (*NodeMergeInfo->MergedNodes.begin())->MergeInfo = nullptr;
+    (*NodeMergeInfo->MergedNodes.begin())->Info = nullptr;
     delete NodeMergeInfo;
   }
 }
@@ -195,8 +195,8 @@ void DependenceGraph::dumpMergeInfo() {
       continue;
     }
 
-    if (Node->isMerged() && !Visited[Node->MergeInfo]) {
-      auto *NodeMergeInfo = Node->MergeInfo;
+    if (Node->isMerged() && !Visited[Node->Info]) {
+      auto *NodeMergeInfo = Node->Info;
       Visited[NodeMergeInfo] = true;
       Logger::getStaticLogger().logDebug("merge info :\nmerged child :" +
                                          (*NodeMergeInfo->MergedNodes.begin())
@@ -262,9 +262,9 @@ bool DependenceGraph::hasWrongFuse() {
   unordered_map<MergeInfo *, bool> Visited;
   for (auto *Node : Nodes) {
 
-    if (Node->isMerged() && !Visited[Node->MergeInfo]) {
-      Visited[Node->MergeInfo] = true;
-      if (hasWrongFuse(Node->MergeInfo))
+    if (Node->isMerged() && !Visited[Node->Info]) {
+      Visited[Node->Info] = true;
+      if (hasWrongFuse(Node->Info))
         return true;
     }
   }
@@ -303,7 +303,7 @@ bool DependenceGraph::hasCycleRec(DG_Node *Node,
   }
 
   // Handle merged nodes
-  MergeInfo *NodeMergeInfo = Node->MergeInfo;
+  MergeInfo *NodeMergeInfo = Node->Info;
 
   for (auto *MergedNode : NodeMergeInfo->MergedNodes) {
     assert(!Visited[MergedNode]);
@@ -341,7 +341,7 @@ void DependenceGraph::printCyclePath(stack<DG_Node *> CyclePath) {
     if (TopNode->isMerged()) {
       Logger::getStaticLogger().logDebug("-merge Node participating Nodes  :");
 
-      for (auto *MergedNode : TopNode->MergeInfo->MergedNodes) {
+      for (auto *MergedNode : TopNode->Info->MergedNodes) {
         Logger::getStaticLogger().logDebug(
             "\tNode :[" + to_string(MergedNode->getTraversalId()) + "|" +
             to_string(MergedNode->getStatementInfo()->getStatementId()) + "|" +
