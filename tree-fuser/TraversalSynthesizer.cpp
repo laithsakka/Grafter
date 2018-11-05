@@ -175,7 +175,7 @@ string &Decls,*/ std::string &BlockPart,
                 "_f" + to_string(TraversalIndex) + "_" +
                 VarDecl->getNameAsString() + "=" +
                 Printer.printStmt(
-                    VarDecl->getInit(), ASTContext->getSourceManager(),
+                    VarDecl->getInit(), ASTCtx->getSourceManager(),
                     FunctionsFinder::getFunctionInfo(Decl)->isGlobal()
                         ? Decl->getParamDecl(0)
                         : nullptr,
@@ -187,7 +187,7 @@ string &Decls,*/ std::string &BlockPart,
       } else {
         // Nullptr is passed as root decl TODO:
         BlockBody += Printer.printStmt(
-            Statement->getStatementInfo()->Stmt, ASTContext->getSourceManager(),
+            Statement->getStatementInfo()->Stmt, ASTCtx->getSourceManager(),
             FunctionsFinder::getFunctionInfo(Decl)->isGlobal()
                 ? Decl->getParamDecl(0)
                 : nullptr,
@@ -251,7 +251,7 @@ void TraversalSynthesizer::setCallPart(
 
     CallPartText += Printer.printStmt(
         NextCallNodes[0]->getStatementInfo()->Stmt,
-        ASTContext->getSourceManager(), RootDecl, "not used",
+        ASTCtx->getSourceManager(), RootDecl, "not used",
         CallNode->getTraversalId(), /*replace this*/ HasCXXCall, HasCXXCall);
 
     CallPartText += "\n}";
@@ -309,7 +309,7 @@ void TraversalSynthesizer::setCallPart(
           dyn_cast<clang::CallExpr>(CallNode->getStatementInfo()->Stmt)
               ->getArg(0);
       NextCallParamsText += Printer.printStmt(
-          FirstArgument, ASTContext->getSourceManager(), RootDeclCallNode, "",
+          FirstArgument, ASTCtx->getSourceManager(), RootDeclCallNode, "",
           CallNode->getTraversalId(), HasCXXCall, HasCXXCall);
 
     } else if (CallNode->getStatementInfo()->Stmt->getStmtClass() ==
@@ -319,7 +319,7 @@ void TraversalSynthesizer::setCallPart(
               ->Stmt->child_begin()
               ->child_begin()
               ->IgnoreImplicit(),
-          ASTContext->getSourceManager(), RootDeclCallNode, "",
+          ASTCtx->getSourceManager(), RootDeclCallNode, "",
           CallNode->getTraversalId(), HasCXXCall, HasCXXCall);
     }
 
@@ -331,7 +331,7 @@ void TraversalSynthesizer::setCallPart(
                               ->Stmt->child_begin()
                               ->child_begin()
                               ->IgnoreImplicit(),
-                          ASTContext->getSourceManager(), RootDeclCallNode, "",
+                          ASTCtx->getSourceManager(), RootDeclCallNode, "",
                           CallNode->getTraversalId(), HasCXXCall, HasCXXCall) +
                       "->" + NextCallName + "(";
     } else if (CallNode->getStatementInfo()->Stmt->getStmtClass() ==
@@ -342,7 +342,7 @@ void TraversalSynthesizer::setCallPart(
 
       CallPartText += NextCallName + "(";
       NextCallParamsText += Printer.printStmt(
-          FirstArgument, ASTContext->getSourceManager(), RootDeclCallNode, "",
+          FirstArgument, ASTCtx->getSourceManager(), RootDeclCallNode, "",
           CallNode->getTraversalId(), HasCXXCall, HasCXXCall);
     } else {
       llvm_unreachable("unexpected");
@@ -367,7 +367,7 @@ void TraversalSynthesizer::setCallPart(
       NextCallParamsText +=
           (NextCallParamsText == "" ? "" : ", ") +
           Printer.printStmt(CallExpr->getArg(ArgIdx),
-                            ASTContext->getSourceManager(),
+                            ASTCtx->getSourceManager(),
                             RootDecl /* not used*/, "not-used",
                             CallNode->getTraversalId(), HasCXXCall, HasCXXCall);
     }
@@ -605,13 +605,13 @@ void TraversalSynthesizer::WriteUpdates(
     if (CallsExpressions[0]->getStmtClass() == clang::Stmt::CallExprClass) {
       auto FirstArgument =
           dyn_cast<clang::CallExpr>(CallsExpressions[0])->getArg(0);
-      Params += Printer.printStmt(FirstArgument, ASTContext->getSourceManager(),
+      Params += Printer.printStmt(FirstArgument, ASTCtx->getSourceManager(),
                                   nullptr, "", -1);
     } else if (CallsExpressions[0]->getStmtClass() ==
                clang::Stmt::CXXMemberCallExprClass) {
       Params += Printer.printStmt(
           CallsExpressions[0]->child_begin()->child_begin()->IgnoreImplicit(),
-          ASTContext->getSourceManager(), nullptr, "", -1);
+          ASTCtx->getSourceManager(), nullptr, "", -1);
     }
 
   } else {
@@ -621,7 +621,7 @@ void TraversalSynthesizer::WriteUpdates(
                                        ->child_begin()
                                        ->child_begin()
                                        ->IgnoreImplicit(),
-                                   ASTContext->getSourceManager(), nullptr, "",
+                                   ASTCtx->getSourceManager(), nullptr, "",
                                    -1, false) +
                  "->" + NextCallName + "(";
     } else if (CallsExpressions[0]->getStmtClass() ==
@@ -631,7 +631,7 @@ void TraversalSynthesizer::WriteUpdates(
           dyn_cast<clang::CallExpr>(CallsExpressions[0])->getArg(0);
 
       NewCall += NextCallName + "(";
-      Params += Printer.printStmt(FirstArgument, ASTContext->getSourceManager(),
+      Params += Printer.printStmt(FirstArgument, ASTCtx->getSourceManager(),
                                   nullptr, "", -1);
     } else {
       llvm_unreachable("unexpected");
@@ -648,7 +648,7 @@ void TraversalSynthesizer::WriteUpdates(
          ArgIdx < CallExpr->getNumArgs(); ArgIdx++) {
       Params += ((Params.size() == 0) ? "" : ", ") +
                 Printer.stmtTostr(CallExpr->getArg(ArgIdx),
-                                  ASTContext->getSourceManager());
+                                  ASTCtx->getSourceManager());
     }
   }
 
@@ -662,8 +662,8 @@ void TraversalSynthesizer::WriteUpdates(
   Rewriter.InsertTextAfter(
       Lexer::findLocationAfterToken(
           CallsExpressions[CallsExpressions.size() - 1]->getLocEnd(),
-          tok::TokenKind::semi, ASTContext->getSourceManager(),
-          ASTContext->getLangOpts(), true),
+          tok::TokenKind::semi, ASTCtx->getSourceManager(),
+          ASTCtx->getLangOpts(), true),
       "\n\t//added by fuse transformer \n\t" + NewCall + "\n");
 
   // add virtual stubs

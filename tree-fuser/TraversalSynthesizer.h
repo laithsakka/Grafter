@@ -41,7 +41,7 @@ private:
       SynthesizedFunctions;
 
   /// ASTContext
-  ASTContext *ASTContext;
+  ASTContext *ASTCtx;
 
   /// Clang source code rewriter for the associated AST
   clang::Rewriter &Rewriter;
@@ -113,10 +113,10 @@ public:
       const std::vector<DG_Node *> &ToplogicalOrder, bool HasVirtual,
       bool HasCXXCall, const CXXRecordDecl *DerivedType);
 
-  TraversalSynthesizer(clang::ASTContext *ASTContext,
+  TraversalSynthesizer(clang::ASTContext *ASTCtx_,
                        clang::Rewriter &Rewriter_,
                        FusionTransformer *Transformer_)
-      : Rewriter(Rewriter_), ASTContext(ASTContext), Transformer(Transformer_) {
+      : Rewriter(Rewriter_), ASTCtx(ASTCtx_), Transformer(Transformer_) {
   }
 };
 
