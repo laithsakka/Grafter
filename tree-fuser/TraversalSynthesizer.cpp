@@ -29,6 +29,8 @@ std::string toBinaryString(unsigned Input) {
     Output = to_string(Tmp) + Output;
     Input = Input / 2;
   }
+  if (Output == "")
+    Output = "0";
   Output = "0b" + Output;
   return Output;
 }
@@ -236,6 +238,17 @@ void TraversalSynthesizer::setCallPart(
   string CallConditionText = "if ( (truncate_flags & " +
                              toBinaryString(ConditionBitMask) + ") )/*call*/";
   CallPartText += CallConditionText + "{\n\t";
+  // Adjust truncate flags of the new called function
+
+  string AdjustedFlagCode = "unsigned int AdjustedTruncateFlags = 0 ;\n";
+
+  for (DG_Node *Node : NextCallNodes) {
+    AdjustedFlagCode += "AdjustedTruncateFlags <<= 1;\n";
+    AdjustedFlagCode += "AdjustedTruncateFlags |="
+                        " 0b01 & (truncate_flags >>" +
+                        to_string(Node->getTraversalId()) + ");\n";
+    ;
+  }
 
   // add an argument to enable disable this optimization
   if (NextCallNodes.size() == 1) {
@@ -250,20 +263,23 @@ void TraversalSynthesizer::setCallPart(
             : nullptr;
 
     CallPartText += Printer.printStmt(
-        NextCallNodes[0]->getStatementInfo()->Stmt,
-        ASTCtx->getSourceManager(), RootDecl, "not used",
-        CallNode->getTraversalId(), /*replace this*/ HasCXXCall, HasCXXCall);
+        NextCallNodes[0]->getStatementInfo()->Stmt, ASTCtx->getSourceManager(),
+        RootDecl, "not used", CallNode->getTraversalId(),
+        /*replace this*/ HasCXXCall, HasCXXCall);
 
     CallPartText += "\n}";
     return;
   }
 
+  // dd adjusted flags code
+  CallPartText += AdjustedFlagCode;
+
   std::vector<clang::CallExpr *> NexTCallExpressions;
+
   for (auto *Node : NextCallNodes)
     NexTCallExpressions.push_back(
         dyn_cast<clang::CallExpr>(Node->getStatementInfo()->Stmt));
 
-  //
   bool HasVirtual = false;
   bool HasCXXMethod = false;
 
@@ -314,13 +330,13 @@ void TraversalSynthesizer::setCallPart(
 
     } else if (CallNode->getStatementInfo()->Stmt->getStmtClass() ==
                clang::Stmt::CXXMemberCallExprClass) {
-      NextCallParamsText += Printer.printStmt(
-          CallNode->getStatementInfo()
-              ->Stmt->child_begin()
-              ->child_begin()
-              ->IgnoreImplicit(),
-          ASTCtx->getSourceManager(), RootDeclCallNode, "",
-          CallNode->getTraversalId(), HasCXXCall, HasCXXCall);
+      NextCallParamsText +=
+          Printer.printStmt(CallNode->getStatementInfo()
+                                ->Stmt->child_begin()
+                                ->child_begin()
+                                ->IgnoreImplicit(),
+                            ASTCtx->getSourceManager(), RootDeclCallNode, "",
+                            CallNode->getTraversalId(), HasCXXCall, HasCXXCall);
     }
 
   } else {
@@ -367,14 +383,15 @@ void TraversalSynthesizer::setCallPart(
       NextCallParamsText +=
           (NextCallParamsText == "" ? "" : ", ") +
           Printer.printStmt(CallExpr->getArg(ArgIdx),
-                            ASTCtx->getSourceManager(),
-                            RootDecl /* not used*/, "not-used",
-                            CallNode->getTraversalId(), HasCXXCall, HasCXXCall);
+                            ASTCtx->getSourceManager(), RootDecl /* not used*/,
+                            "not-used", CallNode->getTraversalId(), HasCXXCall,
+                            HasCXXCall);
     }
   }
-  NextCallParamsText += (NextCallParamsText == "" ? "" : ", ") +
-                        string("truncate_flags & ") +
-                        toBinaryString(ConditionBitMask);
+
+  NextCallParamsText += (NextCallParamsText == "" ? "AdjustedTruncateFlags"
+                                                  : ", AdjustedTruncateFlags");
+
   CallPartText += NextCallParamsText;
   CallPartText += ");";
   CallPartText += "\n}";
@@ -621,8 +638,8 @@ void TraversalSynthesizer::WriteUpdates(
                                        ->child_begin()
                                        ->child_begin()
                                        ->IgnoreImplicit(),
-                                   ASTCtx->getSourceManager(), nullptr, "",
-                                   -1, false) +
+                                   ASTCtx->getSourceManager(), nullptr, "", -1,
+                                   false) +
                  "->" + NextCallName + "(";
     } else if (CallsExpressions[0]->getStmtClass() ==
                clang::Stmt::CallExprClass) {
@@ -698,9 +715,7 @@ void TraversalSynthesizer::WriteUpdates(
     // only participating traversals
     string Params = "";
     string Args = "this";
-    unsigned int x = 0;
-    for (int i = 0; i < CallsExpressions.size(); i++)
-      x |= (1 << i);
+
 
     int Idx = -1;
     for (auto *Decl : TraversalsDeclarationsList) {
@@ -722,7 +737,7 @@ void TraversalSynthesizer::WriteUpdates(
 
     Params +=
         (Params == "" ? "" : ", ") + string("unsigned int truncate_flags");
-    Args += ", " + toBinaryString(x);
+    Args += ", truncate_flags" ;
     auto LambdaFun = [&](const CXXRecordDecl *DerivedType) {
       assert(Rewriter::isRewritable(DerivedType->getLocEnd()));
       Rewriter.InsertText(

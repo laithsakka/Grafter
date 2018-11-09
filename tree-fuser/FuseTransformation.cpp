@@ -21,8 +21,7 @@ llvm::cl::opt<unsigned>
                        cl::init(5), cl::ZeroOrMore, cl::cat(TreeFuserCategory));
 llvm::cl::opt<unsigned>
     MaxMergedNodes("max-merged-n",
-                   cl::desc("a maximum number of calls for the same "
-                            "function that can be fused together"),
+                   cl::desc("a maximum number of  that can be fused together"),
                    cl::init(5), cl::ZeroOrMore, cl::cat(TreeFuserCategory));
 } // namespace opts
 
@@ -158,7 +157,7 @@ void FusionTransformer::performFusion(
       DependenceGraph *DepGraph =
           DepAnalyzer.createDependenceGraph(Candidate, HasVirtual, DerivedType);
 
-      DepGraph->dump();
+     // DepGraph->dump();
 
       performGreedyFusion(DepGraph);
 
