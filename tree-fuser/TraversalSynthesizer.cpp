@@ -242,11 +242,11 @@ void TraversalSynthesizer::setCallPart(
 
   string AdjustedFlagCode = "unsigned int AdjustedTruncateFlags = 0 ;\n";
 
-  for (DG_Node *Node : NextCallNodes) {
+  for (auto it = NextCallNodes.rbegin(); it!=NextCallNodes.rend();++it) {
     AdjustedFlagCode += "AdjustedTruncateFlags <<= 1;\n";
-    AdjustedFlagCode += "AdjustedTruncateFlags |="
+    AdjustedFlagCode += "AdjustedTruncateFlags |=("
                         " 0b01 & (truncate_flags >>" +
-                        to_string(Node->getTraversalId()) + ");\n";
+                        to_string((*it)->getTraversalId()) + "));\n";
     ;
   }
 
