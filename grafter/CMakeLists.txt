@@ -27,26 +27,12 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 target_link_libraries(grafter
   PRIVATE
-  clangAST
-  clangBasic
-  clangDriver
-  clangFrontend
-  clangRewriteFrontend
-  clangStaticAnalyzerFrontend
-  clangTooling
   /usr/local/lib/libfst.so.13
   )
 
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 target_link_libraries(grafter
   PRIVATE
-  clangAST
-  clangBasic
-  clangDriver
-  clangFrontend
-  clangRewriteFrontend
-  clangStaticAnalyzerFrontend
-  clangTooling
   /usr/local/lib/libfst.13.dylib
   )
 
@@ -60,6 +46,4 @@ target_link_libraries(grafter
   clangRewriteFrontend
   clangStaticAnalyzerFrontend
   clangTooling
-  /usr/local/lib/libfst.13.dylib
-  # /usr/local/lib/libfst.so.13
   )
