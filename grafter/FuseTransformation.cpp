@@ -161,7 +161,7 @@ void FusionTransformer::performFusion(
 
       performGreedyFusion(DepGraph);
 
-      DepGraph->dumpMergeInfo();
+      LLVM_DEBUG(DepGraph->dumpMergeInfo());
 
       // Check that fusion was correctly made
       assert(!DepGraph->hasCycle() && "dep graph has cycle");
@@ -171,7 +171,7 @@ void FusionTransformer::performFusion(
 
       Synthesizer->generateWriteBackInfo(Candidate, ToplogicalOrder, HasVirtual,
                                          HasCXXMethod, DerivedType);
-      Logger::getStaticLogger().logDebug("Generation Done ");
+      Logger::getStaticLogger().logDebug("Code Generation Done ");
     }
   };
   if (HasVirtual) {

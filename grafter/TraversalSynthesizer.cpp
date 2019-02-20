@@ -103,9 +103,9 @@ std::string TraversalSynthesizer::createName(
     FuncDecl = FuncDecl->getDefinition();
     if (!FunDeclToNameId.count(FuncDecl)) {
       FunDeclToNameId[FuncDecl] = Count++;
-      Logger::getStaticLogger().logInfo(
+     LLVM_DEBUG( Logger::getStaticLogger().logInfo(
           "Function:" + FuncDecl->getQualifiedNameAsString() + "==>" +
-          to_string(Count - 1) + "\n");
+          to_string(Count - 1) + "\n"));
     }
 
     Output += +"F" + std::to_string(FunDeclToNameId[FuncDecl]);
@@ -974,7 +974,7 @@ void StatementPrinter::print_handleStmt(const clang::Stmt *Stmt,
     break;
   }
   default:
-    Stmt->dump();
+   LLVM_DEBUG( Stmt->dump());
     Output += stmtTostr(Stmt, SM);
   }
   return;
