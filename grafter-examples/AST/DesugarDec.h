@@ -1,18 +1,27 @@
 #include "AST.h"
 
-__tree_traversal__ void Program::desugarDecr() { Functions->desugarDecr(); }
+__tree_traversal__ void Program::desugarDecr() {
+  COUNT
+  Functions->desugarDecr();
+}
 
 __tree_traversal__ void FunctionListInner::desugarDecr() {
+  COUNT
   Content->desugarDecr();
   Next->desugarDecr();
 }
 
 __tree_traversal__ void FunctionListEnd::desugarDecr() {
+  COUNT
   Content->desugarDecr();
 }
-__tree_traversal__ void Function::desugarDecr() { StmtList->desugarDecr(); }
+__tree_traversal__ void Function::desugarDecr() {
+  COUNT
+  StmtList->desugarDecr();
+}
 
 __tree_traversal__ void StmtListInner::desugarDecr() {
+  COUNT
   Stmt->desugarDecr();
 
   if (Stmt->StatementType == DECR) {
@@ -45,9 +54,13 @@ __tree_traversal__ void StmtListInner::desugarDecr() {
 
   Next->desugarDecr();
 }
-__tree_traversal__ void StmtListEnd::desugarDecr() { Stmt->desugarDecr(); }
+__tree_traversal__ void StmtListEnd::desugarDecr() {
+  COUNT
+  Stmt->desugarDecr();
+}
 
 __tree_traversal__ void IfStmt::desugarDecr() {
+  COUNT
   ThenPart->desugarDecr();
   ElsePart->desugarDecr();
 }

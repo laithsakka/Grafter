@@ -1,19 +1,27 @@
 #include "AST.h"
 
-__tree_traversal__ void Program::foldConstants() { Functions->foldConstants(); }
+__tree_traversal__ void Program::foldConstants() {
+  COUNT Functions->foldConstants();
+}
 
 __tree_traversal__ void FunctionListEnd::foldConstants() {
+  COUNT
   Content->foldConstants();
 }
 
 __tree_traversal__ void FunctionListInner::foldConstants() {
+  COUNT
   Content->foldConstants();
   Next->foldConstants();
 }
 
-__tree_traversal__ void Function::foldConstants() { StmtList->foldConstants(); }
+__tree_traversal__ void Function::foldConstants() {
+  COUNT
+  StmtList->foldConstants();
+}
 
 __tree_traversal__ void AssignStmt::foldConstants() {
+  COUNT
   AssignedExpr->foldConstants();
 
   if (AssignedExpr->ExpressionType != BINARY)
@@ -46,13 +54,18 @@ __tree_traversal__ void AssignStmt::foldConstants() {
 }
 
 __tree_traversal__ void StmtListInner::foldConstants() {
+  COUNT
   Stmt->foldConstants();
   Next->foldConstants();
 }
 
-__tree_traversal__ void StmtListEnd::foldConstants() { Stmt->foldConstants(); }
+__tree_traversal__ void StmtListEnd::foldConstants() {
+  COUNT
+  Stmt->foldConstants();
+}
 
 __tree_traversal__ void BinaryExpr::foldConstants() {
+  COUNT
   LHS->foldConstants();
   RHS->foldConstants();
 
@@ -106,6 +119,7 @@ __tree_traversal__ void BinaryExpr::foldConstants() {
 }
 
 __tree_traversal__ void IfStmt::foldConstants() {
+  COUNT
   Condition->foldConstants();
   ThenPart->foldConstants();
   ElsePart->foldConstants();
@@ -135,5 +149,4 @@ __tree_traversal__ void IfStmt::foldConstants() {
       static_cast<ConstantExpr *>(Condition)->Value = NewValue;
     }
   }
-
 }

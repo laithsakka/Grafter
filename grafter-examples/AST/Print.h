@@ -2,14 +2,14 @@
 #include <stdio.h>
 using namespace std;
 
- void Program::print() {
+void Program::print() {
   printf("Program\n");
   Functions->print();
 }
 
- void FunctionListEnd::print() { Content->print(); }
+void FunctionListEnd::print() { Content->print(); }
 
- void FunctionListInner::print() {
+void FunctionListInner::print() {
   Content->print();
   printf("----------------\n");
   Next->print();
@@ -56,4 +56,16 @@ void IfStmt::print() {
   printf("else:\n");
   ElsePart->print();
   printf("endifs\n");
+}
+
+void IncrStmt::print() {
+  printf("Incr");
+  Id->print();
+  printf("\n");
+}
+
+void DecrStmt::print() {
+  printf("Decr");
+  Id->print();
+  printf("\n");
 }

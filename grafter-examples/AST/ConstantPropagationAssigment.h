@@ -3,25 +3,32 @@
 #include <stdio.h>
 
 using namespace std;
-
+// this runs in O(N^2) in the worst case, when fused with linear traversals will
+// hide the speed up since it dominates the work, for that purpose it was
+// restricted to top level assignments
 __tree_traversal__ void Program::propagateConstantsAssignments() {
+  COUNT
   Functions->propagateConstantsAssignments();
 }
 
 __tree_traversal__ void FunctionListEnd::propagateConstantsAssignments() {
+  COUNT
   Content->propagateConstantsAssignments();
 }
 
 __tree_traversal__ void FunctionListInner::propagateConstantsAssignments() {
+  COUNT
   Content->propagateConstantsAssignments();
   Next->propagateConstantsAssignments();
 }
 
 __tree_traversal__ void Function::propagateConstantsAssignments() {
+  COUNT
   StmtList->propagateConstantsAssignments();
 }
 
 __tree_traversal__ void StmtListInner::propagateConstantsAssignments() {
+  COUNT
   int VarRefId;
   VarRefId = 0 - 1;
   int Value;
@@ -47,26 +54,27 @@ __tree_traversal__ void StmtListInner::propagateConstantsAssignments() {
 }
 
 __tree_traversal__ void StmtListEnd::propagateConstantsAssignments() {
+  COUNT
   Stmt->propagateConstantsAssignments();
 }
 __tree_traversal__ void IfStmt::propagateConstantsAssignments() {
-
+  COUNT
   ThenPart->propagateConstantsAssignments();
-  ;
   ElsePart->propagateConstantsAssignments();
 }
 
 __tree_traversal__ void StmtListInner::replaceVarRefWithConst(int VarRefId,
                                                               int Val) {
+  COUNT
   if (VarRefId == (0 - 1))
     return;
 
   Stmt->replaceVarRefWithConst(VarRefId, Val);
 
   if (Stmt->StatementType == IF ||
-      Stmt->StatementType == ASSIGNMENT &&
-          static_cast<VarRefExpr *>(static_cast<AssignStmt *>(Stmt)->Id)
-                  ->VarId == VarRefId)
+      (Stmt->StatementType == ASSIGNMENT &&
+       static_cast<VarRefExpr *>(static_cast<AssignStmt *>(Stmt)->Id)->VarId ==
+           VarRefId))
     return;
 
   Next->replaceVarRefWithConst(VarRefId, Val);
@@ -74,6 +82,7 @@ __tree_traversal__ void StmtListInner::replaceVarRefWithConst(int VarRefId,
 
 __tree_traversal__ void StmtListEnd::replaceVarRefWithConst(int VarRefId,
                                                             int Val) {
+  COUNT
   if (VarRefId == (0 - 1))
     return;
 
@@ -83,6 +92,7 @@ __tree_traversal__ void StmtListEnd::replaceVarRefWithConst(int VarRefId,
 __tree_traversal__ void AssignStmt::replaceVarRefWithConst(int VarRefId,
                                                            int Val) {
 
+  COUNT
   if (AssignedExpr->ExpressionType == VARREF &&
       static_cast<VarRefExpr *>(AssignedExpr)->VarId == VarRefId) {
 
@@ -96,6 +106,7 @@ __tree_traversal__ void AssignStmt::replaceVarRefWithConst(int VarRefId,
 
 __tree_traversal__ void BinaryExpr::replaceVarRefWithConst(int VarRefId,
                                                            int Val) {
+  COUNT
   LHS->replaceVarRefWithConst(VarRefId, Val);
   RHS->replaceVarRefWithConst(VarRefId, Val);
 
@@ -118,6 +129,7 @@ __tree_traversal__ void BinaryExpr::replaceVarRefWithConst(int VarRefId,
 }
 
 __tree_traversal__ void IfStmt::replaceVarRefWithConst(int VarRefId, int Val) {
+  COUNT
   Condition->replaceVarRefWithConst(VarRefId, Val);
   ThenPart->replaceVarRefWithConst(VarRefId, Val);
   ElsePart->replaceVarRefWithConst(VarRefId, Val);

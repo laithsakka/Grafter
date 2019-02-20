@@ -9,6 +9,10 @@ enum ASTStmtType { ASSIGNMENT, IF, NOP, INC, DECR };
 enum ASTExprType { CONSTANT, BINARY, VARREF };
 enum ExprOperator { ADD, SUBTRACT };
 
+int c =0; 
+
+#define COUNT 
+
 class StatementNode;
 
 class __tree_structure__ ASTNode {
@@ -160,8 +164,12 @@ public:
 class __tree_structure__ IncrStmt : public StatementNode {
 public:
   __tree_child__ VarRefExpr *Id;
-  bool IsMutable;
-  __tree_child__ ExpressionNode *AssignedExpr;
+  void print() override;
+};
+
+class __tree_structure__ DecrStmt : public StatementNode {
+public:
+  __tree_child__ VarRefExpr *Id;
   void print() override;
 };
 
@@ -175,6 +183,7 @@ public:
   __tree_traversal__ void replaceVarRefWithConst(int VarRefId,
                                                  int Val) override;
   __tree_traversal__ void propagateConstantsAssignments() override;
+
   __tree_traversal__ void removeUnreachableBranches() override;
   __tree_traversal__ void desugarInc() override;
   __tree_traversal__ void desugarDecr() override;
