@@ -517,6 +517,10 @@ void TraversalSynthesizer::generateWriteBackInfo(
                      CastedToType->getNameAsString() + "*)(_r);\n";
     }
   }
+
+  string VisitsCounting = "\n#ifdef COUNT_VISITS \n _VISIT_COUNTER++;\n #endif \n";
+
+  WriteBackInfo->Body += VisitsCounting;
   WriteBackInfo->Body += RootCasting;
 
   unordered_map<int, vector<DG_Node *>> StamentsOderedByTId;

@@ -171,7 +171,7 @@ void FusionTransformer::performFusion(
 
       Synthesizer->generateWriteBackInfo(Candidate, ToplogicalOrder, HasVirtual,
                                          HasCXXMethod, DerivedType);
-      Logger::getStaticLogger().logDebug("Code Generation Done ");
+     // Logger::getStaticLogger().logDebug("Code Generation Done ");
     }
   };
   if (HasVirtual) {
