@@ -140,7 +140,7 @@ times each and then takes the average of different measurements and generates
 the normalized measurements that are reported in *Fig 11*.
 
 The output table is printed on the screen and stored in *output.csv*, it should
-look like (actual number can be different):
+look like:
 ```
 Size,Normalized L2 Cache Misses,Normalized L3 Cache Misses, Normalized Instructions, Normalized Runtime, Normalized Node Visits
 10,-1,-1,-1,0.9,0.76
@@ -148,9 +148,8 @@ Size,Normalized L2 Cache Misses,Normalized L3 Cache Misses, Normalized Instructi
 1000,-1,-1,-1,0.52,0.76
 10000,-1,-1,-1,0.52,0.76
 ```
-It will consider trees up to size m, where m is binary input; number of
+It will consider trees up to size m, where m is the binary input; number of
 functions for AST, and number of pages for RenderTree.
-
 As mentioned earlier, this will only include normalized runtime and normalized
 node visits when executed on the VM.
 
@@ -202,11 +201,11 @@ output will be in *output.csv* just like other benchmarks.
 ### Real machine experiments
 
 To evaluate **Cache misses** and **Instruction count** we need to access hardware
-counters for PAPI library to work, and for that we need to do the experiments
+counters for PAPI library to work. For that we need to do the experiments
 on a physical machine.
 
 #### Requirements
-* The machine you are running on need to have intel processor.
+* The machine you are running on should have intel processor.
 * The OS should be linux.
 * We want PAPI to be installed on the machine, can be done as the following:
    http://icl.cs.utk.edu/papi/software/index.html
@@ -244,7 +243,7 @@ on a physical machine.
    * $DIR/benchmarks/RenderTree/Treefuser to generate Figure 9.a data.
 
 The outputs are going to be *output.csv* as mentioned earlier, and should look
-like (actual number can be different):
+like:
 ```
 Size,Normalized L2 Cache Misses,Normalized L3 Cache Misses, Normalized Instructions, Normalized Runtime, Normalized Node Visits
 10,1.01,2.23,1.12,1.0,0.76
