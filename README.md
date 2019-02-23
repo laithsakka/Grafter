@@ -229,15 +229,15 @@ on a physical machine.
 * Install python3 if not installed
 
 #### Steps
-1. Generate the fused code as mentioned earlier by executing ``./generate_fused_code.sh``
-   in each of the three benchmarks directories. If you already did the steps
-   before this should be already done.
+1. Generate the fused code **on the VM** as mentioned earlier by executing 
+``./generate_fused_code.sh`` in each of the three benchmarks directories. 
+If you already did the steps before this should be already done.
 
 2. Copy the folder `` /home/grafter/Desktop/Grafter/benchmarks`` into the
-   physical machine at some directory $DIR.
+physical machine at some directory $DIR.
 
 3. Execute ``python3 RunExperiments.py -m MAX-SIZE`` in each of the benchmarks
-   directories.
+directories.
    * $DIR/benchmarks/AST to generate Figure 11 data.
    * $DIR/benchmarks/RenderTree/Grafter to generate Figure 9.b data.
    * $DIR/benchmarks/RenderTree/Treefuser to generate Figure 9.a data.
