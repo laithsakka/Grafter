@@ -6,7 +6,7 @@ the source code for Grafter which is already compiled and ready to use, in
 addition to the source code of the benchmarks.
 
 This section includes the basic steps to get the VM machine running and to run
-grafter. If you want to build Grafter from scratch on your own machine you can
+grafter. If you want to build Grafter from scratch on your own machine, you can
 follow the steps in the extras.
 
 ### Steps for setting up the virtual machine
@@ -14,25 +14,24 @@ follow the steps in the extras.
 2. Download and decompress grafter.tar.gz from
    https://drive.google.com/open?id=1bRKcnHLegINqUBPh6Gy0O9yHXjWFgylJ
 3. From virtual box import grafter.ova (File-> import).
-4. You can launch the VM using the GUI of the virtual box. You might get the
-   following errors
-   1.
-   ```
+4. You can launch the VM using the GUI of the virtual box. When you launch
+   it you might get the following errors:
+1.
+```
     Could not start the machine grafter because the following physical network
     interfaces were not found: vboxnet0 (adapter 2)
     You can either change the machine's network settings or stop the machine
-  ```
-  fix: Right click on the VM and open the VM settings, go to networks and
-  change ``attached to`` from "host only adapter" to "nat".
-
-   2.
-   ```
+```
+fix: Right click on the VM and open the VM settings, go to networks and
+change ``attached to`` from "host only adapter" to "nat".
+2.
+```text
    Failed to open a session for the virtual machine grafter.
    Implementation of the USB 2.0 controller not found!
    ...etc
-   ```
-   fix1: Right click on the VM and open the VM settings, go to ports, choose USB
-   tab and disable USB.
+ ```
+ fix1: Right click on the VM and open the VM settings, go to ports, choose USB
+ tab and disable USB.
 
   **note:** The password for the VM is admin when needed.
 
