@@ -21,23 +21,23 @@ follow the steps in the extras.
     interfaces were not found: vboxnet0 (adapter 2)
     You can either change the machine's network settings or stop the machine
 ```
-   fix: Right click on the VM and open the VM settings, go to networks and
-change ``attached to`` from "host only adapter" to "nat".
+   Fix: Right click on the VM and open the VM settings, go to networks and
+   change ``attached to`` from "host only adapter" to "nat".
 
 ```text
    Failed to open a session for the virtual machine grafter.
    Implementation of the USB 2.0 controller not found!
    ...etc
  ```
-   fix1: Right click on the VM and open the VM settings, go to ports, choose USB
- tab and disable USB.
+   Fix: Right click on the VM and open the VM settings, go to ports, choose USB
+   tab and disable USB.
 
   **note:** The password for the VM is admin when needed.
 
 ### Navigating the virtual machine
 * All the files that you need to deal with are located under
     `/home/grafter/Desktop/Grafter` directory .
-* Grafter source code: Grafter is implemented as a Clang tool, thus its code
+* Grafter source code: grafter is implemented as a Clang tool, thus its code
   resides in the LLVM source code directory and can be found at
   `/home/grafter/Desktop/Grafter/llvm/tools/clang/tools/grafter`.
 * Grafter binary: located  at `/home/grafter/Desktop/Grafter/build/bin/grafter` .
