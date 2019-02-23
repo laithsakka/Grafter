@@ -122,7 +122,7 @@ provide detailed instructions on how to do that at the end the section
    ./unfused 1000
 
    # Expected output; (When PAPI is not available, the case on VM)
-   ####
+   #### Note : Actual values might be different
    # PAPI Error starting counters
    # PAPI Error reading counters
    # L2 Cache Misses : 0
@@ -148,6 +148,8 @@ Size,Normalized L2 Cache Misses,Normalized L3 Cache Misses, Normalized Instructi
 1000,-1,-1,-1,0.52,0.76
 10000,-1,-1,-1,0.52,0.76
 ```
+Note : Actual values might be different.
+
 It will consider trees up to size m, where m is the binary input; number of
 functions for AST, and number of pages for RenderTree.
 As mentioned earlier, this will only include normalized runtime and normalized
@@ -242,8 +244,8 @@ directories.
    * $DIR/benchmarks/RenderTree/Grafter to generate Figure 9.b data.
    * $DIR/benchmarks/RenderTree/Treefuser to generate Figure 9.a data.
 
-The outputs are going to be *output.csv* as mentioned earlier, and should look
-like:
+The results are going to be stored in  *output.csv* in each of the directories
+as mentioned earlier, and should look like:
 ```
 Size,Normalized L2 Cache Misses,Normalized L3 Cache Misses, Normalized Instructions, Normalized Runtime, Normalized Node Visits
 10,1.01,2.23,1.12,1.0,0.76
@@ -251,7 +253,7 @@ Size,Normalized L2 Cache Misses,Normalized L3 Cache Misses, Normalized Instructi
 1000,0.25,0.45,1.13,0.62,0.76
 10000,0.24,0.24,1.13,0.48,0.76
 ```
-
+Note : Actual values might be different.
 # Extras
 ## Building grafter from scratch.
 Follow the following steps to build grafter on your machine (linux )
