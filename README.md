@@ -32,7 +32,7 @@ follow the steps in the extras.
    Fix: Right click on the VM and open the VM settings, go to ports, choose USB
    tab and disable USB.
 
-  **note:** The password for the VM is admin when needed.
+  **Note:** The password for the VM is admin when needed.
 
 ### Navigating the virtual machine
 * All the files that you need to deal with are located under
@@ -86,11 +86,11 @@ to the code above.
 
 ## Step-by-Step Instructions
 
-In our paper we demonstrated two use cases (AST traversals and Render trees),
-in this section we will walk through the process of regenerating the reported
+In our paper we demonstrated two use cases (AST traversals and Render trees).
+In this section we will walk through the process of regenerating the reported
 results for each of them.
 
-Note1: We **can not** access hardware counters from the virtual machine using
+**Note**: We **can not** access hardware counters from the virtual machine using
 virtual box, thus we can only **perform the fusion**, and show the **speedup** and
 the **reduction of node visits** on the VM.
 
@@ -98,8 +98,7 @@ To measure **cache performance** and **count instructions** we need to move the 
 code to an actual(physical) machine and perform the experiments on it, we
 provide detailed instructions on how to do that at the end the section
 
-
-Note2: The documentation is meant to be read in order.
+**Note**: The documentation is meant to be read in order.
 
 ### Generating fused traversals and virtual machine experiments
 
