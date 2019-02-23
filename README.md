@@ -16,19 +16,17 @@ follow the steps in the extras.
 3. From virtual box import grafter.ova (File-> import).
 4. You can launch the VM using the GUI of the virtual box. When you launch
    it you might get the following errors:
-```
-    Could not start the machine grafter because the following physical network
+   ``` Could not start the machine grafter because the following physical network
     interfaces were not found: vboxnet0 (adapter 2)
     You can either change the machine's network settings or stop the machine
-```
+   ``` 
    Fix: Right click on the VM and open the VM settings, go to networks and
    change ``attached to`` from "host only adapter" to "nat".
-
-```text
+   ```text
    Failed to open a session for the virtual machine grafter.
    Implementation of the USB 2.0 controller not found!
    ...etc
- ```
+   ```
    Fix: Right click on the VM and open the VM settings, go to ports, choose USB
    tab and disable USB.
 
