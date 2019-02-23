@@ -7,7 +7,7 @@ addition to the source code of the benchmarks.
 
 This section includes the basic steps to get the VM machine running and to run
 grafter. If you want to build Grafter from scratch on your own machine, you can
-follow the steps in the extras.
+follow the steps in the extras section at the end of the document.
 
 ### Steps for setting up the virtual machine
 1. Install virtual box from https://www.virtualbox.org/wiki/Downloads.
@@ -16,17 +16,21 @@ follow the steps in the extras.
 3. From virtual box import grafter.ova (File-> import).
 4. You can launch the VM using the GUI of the virtual box. When you launch
    it you might get the following errors:
-   ``` Could not start the machine grafter because the following physical network
-    interfaces were not found: vboxnet0 (adapter 2)
-    You can either change the machine's network settings or stop the machine
-   ``` 
+```
+  Could not start the machine grafter because the following physical network
+  interfaces were not found: vboxnet0 (adapter 2)
+  You can either change the machine's network settings or stop the machine
+```
+
    Fix: Right click on the VM and open the VM settings, go to networks and
    change ``attached to`` from "host only adapter" to "nat".
-   ```text
-   Failed to open a session for the virtual machine grafter.
-   Implementation of the USB 2.0 controller not found!
-   ...etc
-   ```
+
+```
+  Failed to open a session for the virtual machine grafter.
+  Implementation of the USB 2.0 controller not found!
+  ...etc
+```
+
    Fix: Right click on the VM and open the VM settings, go to ports, choose USB
    tab and disable USB.
 
@@ -43,8 +47,8 @@ follow the steps in the extras.
   located under ``/home/grafter/Desktop/Grafter/benchmarks``.
 
 ### Basic testing.
-The file ``/home/grafter/Desktop/Grafter/benchmarks/BinarySearchTree/UNFUSED/\
-main.cpp`` includes a simple binary search tree program that performs two
+The file ``/home/grafter/Desktop/Grafter/benchmarks/BinarySearchTree/UNFUSED/main.cpp``
+includes a simple binary search tree program that performs two
 traversals (insertion and search). In this basic testing, we will show how to run
 grafter on this program and generate a fused code. For more information about
 the language of Grafter refer to *Writing code in Grafter*  under extras section
@@ -171,7 +175,7 @@ we will do the tests on the machine to simplify the task.
    # single tests (takes as input the number of pages   
    ./fused 1000
    ./unfused 1000
-       
+
    # run complete test from (10, 100, 1000 ... m)
    python3 RunExperiments.py -m 10000
 ```
@@ -209,7 +213,7 @@ on a physical machine.
 * The OS should be linux.
 * We want PAPI to be installed on the machine, can be done as the following:
    http://icl.cs.utk.edu/papi/software/index.html
- ```bash
+```bash
     mkdir tmp && cd tmp
     git clone https://bitbucket.org/icl/papi.git
     cd papi
@@ -229,8 +233,8 @@ on a physical machine.
 * Install python3 if not installed
 
 #### Steps
-1. Generate the fused code **on the VM** as mentioned earlier by executing 
-``./generate_fused_code.sh`` in each of the three benchmarks directories. 
+1. Generate the fused code **on the VM** as mentioned earlier by executing
+``./generate_fused_code.sh`` in each of the three benchmarks directories.
 If you already did the steps before this should be already done.
 
 2. Copy the folder `` /home/grafter/Desktop/Grafter/benchmarks`` into the
@@ -301,6 +305,7 @@ Follow the following steps to build grafter on your machine (linux )
 
 
 ## Writing code in Grafter.
+## General information
 * Grafter operates on code written in a subset of C++ language, the code can
 coexist with other general C++ code without problems.
 
@@ -336,22 +341,23 @@ tree traversals should be **public** .
 derived from a tree structure should have the tree structure annotation as well.
 
 
-#### Traversals Language Restrictions:
+### Traversals Language Restrictions:
 * This is a small set of can and can not do things in Grafter tree traversals,
  yet **not complete**.
 
   1. Return types should be void.
-  2. Traversing Calls cant be conditioned.
+  2. Traversing calls cant be conditioned.
   3. No explicit for loops.
   4. Do not use pointers for data (only for tree nodes).
+
 * What is allowed?
   1. Mutual recursions.
   2. If Statement.
   3. Assignment.
-  4. Node deletion delete path-to-tree-node
-  5. Node creation path-to-tree-node = new ().
-  6. Aliasing statement: TreeNodeType * const X = path-to-tree-node
-  7. BinaryExpressions (>, <, ==, &&, || ..etc)
-  8. NULL Expression.
+  4. Node deletion: *delete path-to-tree-node* .
+  5. Node creation: *path-to-tree-node = new ()* .
+  6. Aliasing statement: *TreeNodeType * const X = path-to-tree-node* .
+  7. Binary expressions (>, <, ==, &&, || ..etc).
+  8. NULL expression.
   9. Calls to other traversals.
-  10. Calls to abstract access functions**.
+  10. Calls to pure functions.
