@@ -108,32 +108,32 @@ provide detailed instructions on how to do that at the end the section
 ``/home/grafter/Desktop/Grafter/benchmarks/AST/UNFUSED``
 * To generate Figure 11 data do the following:
 ```bash
-     # all the commands bellow should be executed while at that directory*
-     cd /home/grafter/Desktop/Grafter/benchmarks/AST
+   # all the commands bellow should be executed while at that directory*
+   cd /home/grafter/Desktop/Grafter/benchmarks/AST
 
-     # generate the fused code inside the folder FUSED
-     ./generate_fused_code.sh
+   # generate the fused code inside the folder FUSED
+   ./generate_fused_code.sh
 
-     # generate binaries (fused and unfused)
-     ./generate_binaries.sh
+   # generate binaries (fused and unfused)
+   ./generate_binaries.sh
 
-     # single tests (takes as input the number of functions )
-     ./fused 1000
-     ./unfused 1000
+   # single tests (takes as input the number of functions )
+   ./fused 1000
+   ./unfused 1000
 
-     # Expected output; (When PAPI is not available, the case on VM)
-     ####
-     # PAPI Error starting counters
-     # PAPI Error reading counters
-     # L2 Cache Misses : 0
-     # L3 Cache Misses  : 0
-     # Instructions : 0
-     # Runtime: 12861 microseconds
-     # Node Visits: 242005
-     ####
+   # Expected output; (When PAPI is not available, the case on VM)
+   ####
+   # PAPI Error starting counters
+   # PAPI Error reading counters
+   # L2 Cache Misses : 0
+   # L3 Cache Misses  : 0
+   # Instructions : 0
+   # Runtime: 12861 microseconds
+   # Node Visits: 242005
+   ####
 
-    # run complete test from (10, 100, 1000 ... m)
-     python3 RunExperiments.py -m 10000
+   # run complete test from (10, 100, 1000 ... m)
+   python3 RunExperiments.py -m 10000
 ```
 The python script *RunExperiments.py* runs the fused and the unfused binaries 10
 times each and then takes the average of different measurements and generates
@@ -160,20 +160,20 @@ we will do the tests on the machine to simplify the task.
 * Source code is in ``/home/grafter/Desktop/Grafter/benchmarks/RenderTree/Treefuser/UNFUSED``
 * To generate Figure 9.b data do the following:
 ```bash
-       cd /home/grafter/Desktop/Grafter/benchmarks/RenderTree/Treefuser
+   cd /home/grafter/Desktop/Grafter/benchmarks/RenderTree/Treefuser
 
-       # generate the fused code inside the folder FUSED
-       ./generate_fused_code.sh
+   # generate the fused code inside the folder FUSED
+   ./generate_fused_code.sh
 
-       # generate binaries (fused and unfused)
-       ./generate_binaries.sh
+   # generate binaries (fused and unfused
+   ./generate_binaries.sh
 
-       # single tests (takes as input the number of pages)
-       ./fused 1000
-       ./unfused 1000
-
-       # run complete test from (10, 100, 1000 ... m)
-       python3 RunExperiments.py -m 10000
+   # single tests (takes as input the number of pages   
+   ./fused 1000
+   ./unfused 1000
+       
+   # run complete test from (10, 100, 1000 ... m)
+   python3 RunExperiments.py -m 10000
 ```
 output will be in *output.csv* just like AST.
 
@@ -181,20 +181,20 @@ output will be in *output.csv* just like AST.
 * Source code  code is in ``/home/grafter/Desktop/Grafter/benchmarks/RenderTree/Grafter/UNFUSED``
 * To generate Figure 9.a data do the following:
 ```bash
-      cd /home/grafter/Desktop/Grafter/benchmarks/RenderTree/Grafter
+   cd /home/grafter/Desktop/Grafter/benchmarks/RenderTree/Grafter
 
-      # generate the fused code inside the folder FUSED
-      ./generate_fused_code.sh
+   # generate the fused code inside the folder FUSED
+   ./generate_fused_code.sh
 
-      # generate binaries (fused and unfused)
-      ./generate_binaries.sh
+   # generate binaries (fused and unfused)
+   ./generate_binaries.sh
 
-      # single tests (takes as input the number of pages)
-      ./fused 1000
-      ./unfused 1000
+   # single tests (takes as input the number of pages)
+   ./fused 1000
+   ./unfused 1000
 
-     # run complete test from (10, 100, 1000 ... m)
-      python3 RunExperiments.py -m 10000
+   # run complete test from (10, 100, 1000 ... m)
+   python3 RunExperiments.py -m 10000
 ```
 output will be in *output.csv* just like other benchmarks.
 
@@ -252,9 +252,7 @@ Size,Normalized L2 Cache Misses,Normalized L3 Cache Misses, Normalized Instructi
 10000,0.24,0.24,1.13,0.48,0.76
 ```
 
-
 # Extras
-
 ## Building grafter from scratch.
 Follow the following steps to build grafter on your machine (linux )
 1. Install cmake and ninja.
@@ -264,25 +262,25 @@ Follow the following steps to build grafter on your machine (linux )
 ```
 2. Install openfst.(http://www.openfst.org)
 ```bash
-       mkdir tmp
-       cd /tmp
-       wget -nv http://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.6.9.tar.gz
-       tar xf openfst-1.6.9.tar.gz
-       cd openfst-1.6.9 && ./configure &&  make
-       sudo make install
+   mkdir tmp
+   cd /tmp
+   wget -nv http://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.6.9.tar.gz
+   tar xf openfst-1.6.9.tar.gz
+   cd openfst-1.6.9 && ./configure &&  make
+   sudo make install
 ```
 3. Get llvm source code using commit hash 97d7bcd5c024ee6aec4eecbc723bb6d4f4c3dc3d
 ```bash
-       wget -nv https://github.com/llvm-mirror/llvm/archive/97d7bcd5c024ee6aec4eecbc723bb6d4f4c3dc3d.tar.gz
-       tar xf 97d7bcd5c024ee6aec4eecbc723bb6d4f4c3dc3d.tar.gz
-       mv llvm-97d7bcd5c024ee6aec4eecbc723bb6d4f4c3dc3d  $LLVM_ROOT
+   wget -nv https://github.com/llvm-mirror/llvm/archive/97d7bcd5c024ee6aec4eecbc723bb6d4f4c3dc3d.tar.gz
+   tar xf 97d7bcd5c024ee6aec4eecbc723bb6d4f4c3dc3d.tar.gz
+   mv llvm-97d7bcd5c024ee6aec4eecbc723bb6d4f4c3dc3d  $LLVM_ROOT
 ```
 4. Get clang soure code using hash commit 6093fea79d46ed6f9846e7f069317ae996149c69
      and place it in $LLVM_ROOT/tools/clang
 ```bash
-      wget --progress=dot:giga https://github.com/llvm-mirror/clang/archive/6093fea79d46ed6f9846e7f069317ae996149c69.tar.gz
-      tar xf 6093fea79d46ed6f9846e7f069317ae996149c69.tar.gz
-      mv clang-6093fea79d46ed6f9846e7f069317ae996149c69  $LLVM_ROOT/tools/clang
+   wget --progress=dot:giga https://github.com/llvm-mirror/clang/archive/6093fea79d46ed6f9846e7f069317ae996149c69.tar.gz
+   tar xf 6093fea79d46ed6f9846e7f069317ae996149c69.tar.gz
+   mv clang-6093fea79d46ed6f9846e7f069317ae996149c69  $LLVM_ROOT/tools/clang
 ```
 5. Get grafter source code and place it  $LLVM_ROOT/tools/clang/tools/grafter
 ```bash
@@ -295,9 +293,9 @@ Follow the following steps to build grafter on your machine (linux )
 7. Make a build directory $BUILD_DIR outside $LLVM_ROOT
 8. Build grafter
 ```bash
-  cd $BUILD_DIR
-  cmake -G Ninja  $LLVM_ROOT
-  ninja grafter
+   cd $BUILD_DIR
+   cmake -G Ninja  $LLVM_ROOT
+   ninja grafter
 ```
 9. Check the binary in $BUILD_DIR/bin/grafter.
 
