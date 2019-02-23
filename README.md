@@ -1,165 +1,363 @@
-# Treefuser2
-TreeFuser is a tool that perform traversals fusion for recursive tree traversals written in subset of the c++ language, for more information about the tool check the paper(https://dl.acm.org/citation.cfm?id=3133900).
+# Artifact evaluation guide
 
-TreeFuser2 is an ongoing extension for TreeFuser that is aiming to mainly add the following support:
-1. Node Creation.
-2. Node Deletion.
-3. Aliasing Statements.
-4. Support Heterogonous Types through Inheritance and Virtual functions.
-5. Support mutual recursion.
-6. Change the access representation to an automates using OpenFST and dependence checks to intersections.
+## Getting Started Guide
+The artifact is enclosed inside a virtual machine, the virtual machine contains
+the source code for Grafter which is already compiled and ready to use, in
+addition to the source code of the benchmarks.
+
+This section includes the basic steps to get the VM machine running and to run
+grafter. If you want to build Grafter from scratch on your own machine you can
+follow the steps in the extras.
+
+### Steps for setting up the virtual machine
+1. Install virtual box from https://www.virtualbox.org/wiki/Downloads.
+2. Download and decompress grafter.tar.gz from
+   https://drive.google.com/open?id=1bRKcnHLegINqUBPh6Gy0O9yHXjWFgylJ
+3. From virtual box import grafter.ova (File-> import).
+4. You can launch the VM using the GUI of the virtual box. You might get the
+   following errors
+   1.
+   ```
+    Could not start the machine grafter because the following physical network
+    interfaces were not found: vboxnet0 (adapter 2)
+    You can either change the machine's network settings or stop the machine
+  ```
+  fix: Right click on the VM and open the VM settings, go to networks and
+  change ``attached to`` from "host only adapter" to "nat".
+
+   2.
+   ```
+   Failed to open a session for the virtual machine grafter.
+   Implementation of the USB 2.0 controller not found!
+   ...etc
+   ```
+   fix1: Right click on the VM and open the VM settings, go to ports, choose USB
+   tab and disable USB.
+
+  **note:** The password for the VM is admin when needed.
+
+### Navigating the virtual machine
+* All the files that you need to deal with are located under
+    `/home/grafter/Desktop/Grafter` directory .
+* Grafter source code: Grafter is implemented as a Clang tool, thus its code
+  resides in the LLVM source code directory and can be found at
+  `/home/grafter/Desktop/Grafter/llvm/tools/clang/tools/grafter`.
+* Grafter binary: located  at `/home/grafter/Desktop/Grafter/build/bin/grafter` .
+* Benchmarks evaluated in the paper: AST traversals and RenderTree,
+  located under ``/home/grafter/Desktop/Grafter/benchmarks``.
+
+### Basic testing.
+The file ``/home/grafter/Desktop/Grafter/benchmarks/BinarySearchTree/UNFUSED/\
+main.cpp`` includes a simple binary search tree program that performs two
+traversals (insertion and search). In this basic testing, we will show how to run
+grafter on this program and generate a fused code. For more information about
+the language of Grafter refer to *Writing code in Grafter*  under extras section
+at end of the document.
+
+Follow the following steps for basic testing:
+```bash
+     # Copy the source code into a different file.
+     cd /home/grafter/Desktop/Grafter/benchmarks/BinarySearchTree
+     mkdir FUSED
+     cp UNFUSED/* FUSED/
+
+     # Run Grafter
+     ../../build/bin/grafter  -max-merged-f=1  -max-merged-n=5 FUSED/main.cpp\
+     -- -I/usr/lib/llvm-3.8/lib/clang/3.8.0/include/ -std=c++11
+
+     # Format the output code to make it more readable
+     clang-format -i FUSED/main.cpp
+
+     # Test code
+     clang++ FUSED/main.cpp -std=c++11 -o fused
+     clang++ UNFUSED/main.cpp -std=c++11 -o unfused
+
+     # Expect the same output "10 is found"
+     ./fused
+     ./unfused
+
+     # Inspect the fused code
+     vim FUSED/main.cpp
+```
+Looking at the fused code we can see that the original calls at lines
+461-463 are commented and replaced with a new call to the new fused traversal
+at line 466.
+In the next section the commands responsible for generating the fused code and
+for compiling the programs will be executed within scripts in a way similar
+to the code above.
+
+## Step-by-Step Instructions
+
+In our paper we demonstrated two use cases (AST traversals and Render trees),
+in this section we will walk through the process of regenerating the reported
+results for each of them.
+
+Note1: We **can not** access hardware counters from the virtual machine using
+virtual box, thus we can only **perform the fusion**, and show the **speedup** and
+the **reduction of node visits** on the VM.
+
+To measure **cache performance** and **count instructions** we need to move the fused
+code to an actual(physical) machine and perform the experiments on it, we
+provide detailed instructions on how to do that at the end the section
 
 
-# INSTALLATION
+Note2: The documentation is meant to be read in order.
 
-Treefuser uses Clang libraries and by design it is built as one of Clang tools. The build process is not much different from a regular Clang build. The following instructions assumes that you are running under Linux (works for mac)
+### Generating fused traversals and virtual machine experiments
 
-### Prerequisite 
-(1) Make sure that you have OpenFST library installed in the system. http://www.openfst.org/twiki/bin/view/FST/WebHome 
+#### AST traversals (Figure 11)
 
-### Now you are ready
+* Unfused code for AST traversals is located at
+``/home/grafter/Desktop/Grafter/benchmarks/AST/UNFUSED``
+* To generate Figure 11 data do the following:
+```bash
+     # all the commands bellow should be executed while at that directory*
+     cd /home/grafter/Desktop/Grafter/benchmarks/AST
 
-Start with cloning LLVM and Clang repos:
+     # generate the fused code inside the folder FUSED
+     ./generate_fused_code.sh
 
-> git clone https://github.com/llvm-mirror/llvm llvm
+     # generate binaries (fused and unfused)
+     ./generate_binaries.sh
 
-> cd llvm/tools
+     # single tests (takes as input the number of functions )
+     ./fused 1000
+     ./unfused 1000
 
-> git clone https://github.com/llvm-mirror/clang clang
+     # Expected output; (When PAPI is not available, the case on VM)
+     ####
+     # PAPI Error starting counters
+     # PAPI Error reading counters
+     # L2 Cache Misses : 0
+     # L3 Cache Misses  : 0
+     # Instructions : 0
+     # Runtime: 12861 microseconds
+     # Node Visits: 242005
+     ####
 
-> cd clang/tools
+    # run complete test from (10, 100, 1000 ... m)
+     python3 RunExperiments.py -m 10000
+```
+The python script *RunExperiments.py* runs the fused and the unfused binaries 10
+times each and then takes the average of different measurements and generates
+the normalized measurements that are reported in *Fig 11*.
 
-Download the folder tree-fuser from the repo and put inside llvm/tools/clang/tools
-> git clone -b treefuser2 https://github.com/laithsakka/TreeFuser/ tmp
+The output table is printed on the screen and stored in *output.csv*, it should
+look like (actual number can be different):
+```
+Size,Normalized L2 Cache Misses,Normalized L3 Cache Misses, Normalized Instructions, Normalized Runtime, Normalized Node Visits
+10,-1,-1,-1,0.9,0.76
+100,-1,-1,-1,0.91,0.76
+1000,-1,-1,-1,0.52,0.76
+10000,-1,-1,-1,0.52,0.76
+```
+It will consider trees up to size m, where m is binary input; number of
+functions for AST, and number of pages for RenderTree.
 
-> mv tmp/tree-fuser ./
+As mentioned earlier, this will only include normalized runtime and normalized
+node visits when executed on the VM.
 
-> rm -rf ./tmp
+#### Treefuser-RenderTree (Figure 9.b)
+In the paper we ran render tree benchmark on a mobile device, in this evaluation
+we will do the tests on the machine to simplify the task.
 
-> cd ..
+* Source code is in ``/home/grafter/Desktop/Grafter/benchmarks/RenderTree/Treefuser/UNFUSED``
+* To generate Figure 9.b data do the following:
+```bash
+       cd /home/grafter/Desktop/Grafter/benchmarks/RenderTree/Treefuser
 
-#### Add the following line to llvm/tools/clang/tools/CMakeLists.txt \"add_clang_subdirectory(tree-fuser)\" 
-#### Update llvm/tools/clang/tools/tree-fuser/CMakeLists.txt by adding the path to OpenFST library to target_link_libraries by defualt it will try to link  /usr/local/lib/libfst.13.dylib 
+       # generate the fused code inside the folder FUSED
+       ./generate_fused_code.sh
 
-Proceed to a normal LLVM build using a compiler with C++11 support (for GCC use version 4.9 or later):
+       # generate binaries (fused and unfused)
+       ./generate_binaries.sh
 
-> cd ../../../../
+       # single tests (takes as input the number of pages)
+       ./fused 1000
+       ./unfused 1000
 
-> mkdir build
+       # run complete test from (10, 100, 1000 ... m)
+       python3 RunExperiments.py -m 10000
+```
+output will be in *output.csv* just like AST.
 
-> cd build
+#### Grafter (Figure 9.a)
+* Source code  code is in ``/home/grafter/Desktop/Grafter/benchmarks/RenderTree/Grafter/UNFUSED``
+* To generate Figure 9.a data do the following:
+```bash
+      cd /home/grafter/Desktop/Grafter/benchmarks/RenderTree/Grafter
 
-> cmake -G Ninja ../llvm
+      # generate the fused code inside the folder FUSED
+      ./generate_fused_code.sh
 
-> ninja tree-fuser
+      # generate binaries (fused and unfused)
+      ./generate_binaries.sh
 
-tree-fuser will be available under ./bin/ Add this directory to your path to ensure the rest of the commands in this tutorial work.
+      # single tests (takes as input the number of pages)
+      ./fused 1000
+      ./unfused 1000
 
-.
+     # run complete test from (10, 100, 1000 ... m)
+      python3 RunExperiments.py -m 10000
+```
+output will be in *output.csv* just like other benchmarks.
 
-# Usage
-This part considers that the user is using TreeFuser2.
-you can run tree-fuser simply as tree-fuser file.cpp --
+### Real machine experiments
 
-TreeFuser looks for sequence of traversals that traverse the same structure and try to fuse them, It will update the files, make sure to operate on a copy of the files or create a backup.
+To evaluate **Cache misses** and **Instruction count** we need to access hardware
+counters for PAPI library to work, and for that we need to do the experiments
+on a physical machine.
 
-## Language 
-TreeFuser operates on code written in subset of C++ language, the code can coexists with other general C++ code without problems.
-The restrictions are for the functions that are annotated to be considered for fusion by TreeFuser.
+#### Requirements
+* The machine you are running on need to have intel processor.
+* The OS should be linux.
+* We want PAPI to be installed on the machine, can be done as the following:
+   http://icl.cs.utk.edu/papi/software/index.html
+ ```bash
+    mkdir tmp && cd tmp
+    git clone https://bitbucket.org/icl/papi.git
+    cd papi
+    git pull https://bitbucket.org/icl/papi.git
+    cd src
+    ./configure
+    make -j 20
+    sudo make install
+```
+* Make sure hardware counters access is enabled by doing the following:
+   (this need to be done if the machine is restarted)
+```bash
+   sudo -i
+   echo 0 > /proc/sys/kernel/perf_event_paranoid
+   exit
+```
+* Install python3 if not installed
 
-There are four main annotations that are used in TreeFuser language:
+#### Steps
+1. Generate the fused code as mentioned earlier by executing ``./generate_fused_code.sh``
+   in each of the three benchmarks directories. If you already did the steps
+   before this should be already done.
 
-1. tree_structure : A class annotation that identifies tree structures:
-2. tree_child: A class member annotation that identifies recursive Fields: 
-3. tree_traversals: Identify tree traversals
-4. abstract access.
+2. Copy the folder `` /home/grafter/Desktop/Grafter/benchmarks`` into the
+   physical machine at some directory $DIR.
 
-An example of a code written for TreeFuser is bellow for more complicated examples check examples folder.
+3. Execute ``python3 RunExperiments.py -m MAX-SIZE`` in each of the benchmarks
+   directories.
+   * $DIR/benchmarks/AST to generate Figure 11 data.
+   * $DIR/benchmarks/RenderTree/Grafter to generate Figure 9.b data.
+   * $DIR/benchmarks/RenderTree/Treefuser to generate Figure 9.a data.
 
-```c++
-#include <assert.h>
-#include <stddef.h>
-#include <stdio.h>
-#define _Bool bool
-#define __tree_structure__ __attribute__((annotate("tf_tree")))
-#define __tree_child__ __attribute__((annotate("tf_child")))
-#define __tree_traversal__ __attribute__((annotate("tf_fuse")))
-enum NodeType { VAL_NODE, NULL_NODE };
-
-class __tree_structure__ Node {
-public:
-  bool Found = false;
-  NodeType Type;
-  __tree_traversal__ virtual void search(int Key, bool ValidCall) {
-    Found = false;
-  }
-  __tree_traversal__ virtual void insert(int Key, bool ValidCall) {}
-};
-
-class __tree_structure__ NullNode : public Node {};
-
-class __tree_structure__ ValueNode : public Node {
-public:
-  int Value;
-  __tree_child__ Node *Left, *Right;
-
-  __tree_traversal__ void search(int Key, bool ValidCall) override {
-
-    if (ValidCall != true)
-      return;
-    Found = false;
-
-    if (Key == Value) {
-      Found = true;
-      return;
-    }
-    Left->search(Key, Key < Value);
-    Right->search(Key, Key >= Value);
-    Found = Left->Found || Right->Found;
-  }
-  
-  };
+The outputs are going to be *output.csv* as mentioned earlier, and should look
+like (actual number can be different):
+```
+Size,Normalized L2 Cache Misses,Normalized L3 Cache Misses, Normalized Instructions, Normalized Runtime, Normalized Node Visits
+10,1.01,2.23,1.12,1.0,0.76
+100,0.25,2.09,1.13,0.63,0.76
+1000,0.25,0.45,1.13,0.62,0.76
+10000,0.24,0.24,1.13,0.48,0.76
 ```
 
+
+# Extras
+
+## Building grafter from scratch.
+Follow the following steps to build grafter on your machine (linux )
+1. Install cmake and ninja.
+```bash
+   sudo apt-get update -y
+   sudo apt-get install -y wget git build-essential cmake ninja-build python
+```
+2. Install openfst.(http://www.openfst.org)
+```bash
+       mkdir tmp
+       cd /tmp
+       wget -nv http://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.6.9.tar.gz
+       tar xf openfst-1.6.9.tar.gz
+       cd openfst-1.6.9 && ./configure &&  make
+       sudo make install
+```
+3. Get llvm source code using commit hash 97d7bcd5c024ee6aec4eecbc723bb6d4f4c3dc3d
+```bash
+       wget -nv https://github.com/llvm-mirror/llvm/archive/97d7bcd5c024ee6aec4eecbc723bb6d4f4c3dc3d.tar.gz
+       tar xf 97d7bcd5c024ee6aec4eecbc723bb6d4f4c3dc3d.tar.gz
+       mv llvm-97d7bcd5c024ee6aec4eecbc723bb6d4f4c3dc3d  $LLVM_ROOT
+```
+4. Get clang soure code using hash commit 6093fea79d46ed6f9846e7f069317ae996149c69
+     and place it in $LLVM_ROOT/tools/clang
+```bash
+      wget --progress=dot:giga https://github.com/llvm-mirror/clang/archive/6093fea79d46ed6f9846e7f069317ae996149c69.tar.gz
+      tar xf 6093fea79d46ed6f9846e7f069317ae996149c69.tar.gz
+      mv clang-6093fea79d46ed6f9846e7f069317ae996149c69  $LLVM_ROOT/tools/clang
+```
+5. Get grafter source code and place it  $LLVM_ROOT/tools/clang/tools/grafter
+```bash
+   wget http://github.com/laithsakka/TreeFuser/archive/pldi2019.tar.gz
+   tar xf pldi2019.tar.gz
+   mv TreeFuser-pldi2019/grafter $LLVM_ROOT/tools/clang/tools/grafter
+```
+6. Add the following line to $LLVM_ROOT/tools/clang/tools/CMakeLists.txt
+    ``add_clang_subdirectory(grafter)``
+7. Make a build directory $BUILD_DIR outside $LLVM_ROOT
+8. Build grafter
+```bash
+  cd $BUILD_DIR
+  cmake -G Ninja  $LLVM_ROOT
+  ninja grafter
+```
+9. Check the binary in $BUILD_DIR/bin/grafter.
+
+
+## Writing code in Grafter.
+* Grafter operates on code written in a subset of C++ language, the code can
+coexist with other general C++ code without problems.
+
+* The language of grafter need to be obeyed in the traversals in order for them
+  to be considered for fusion.
+
+* There are four main annotations that are used in Grafter language:
+  1. tree_structure : A class annotation that identifies tree structures:
+  2. tree_child: A class member annotation that identifies recursive Fields:
+  3. tree_traversals: Identify tree traversals
+  4. abstract access.
+
+  ```
+     #define __tree_structure__ __attribute__((annotate("tf_tree")))
+     #define __tree_child__ __attribute__((annotate("tf_child")))
+     #define __tree_traversal__ __attribute__((annotate("tf_fuse")))
+  ```
+
+* A good start point is to look at the simple example
+  ``/home/grafter/Desktop/Grafter/benchmarks/BinarySearchTree/UNFUSED/main.cpp``
+   and read the language section in the paper in addition to looking at the
+   AST and the RenderTree/Grafter examples.
+
+* Make sure to have all your code in one compilation unit; for separation you
+  can write separate traversals in separate header files.(see benchmarks)
+
 ### Tree structure
-Any c++ class can be annotated as a tree structure, recursive fields should be annotated as well,
-all tree structure's members that are going to be used in the tree traversals should be public this is something that 
-we are planning to relax later.
+* Any c++ class can be annotated as a tree structure, tree children should be
+annotated as well, all tree structure ' s members that are going to be used in the
+tree traversals should be **public** .
 
-Heterogeneous types are supported through inheritance, all classes that are derived from a tree structure should
-have the tree structure annotation as well.
+* Heterogeneous types are supported through inheritance, all classes that are
+derived from a tree structure should have the tree structure annotation as well.
 
-### Traversals
-There are two ways traversals can be written :
-
-1. Global Functions: Those traversals should have the traversed node as the first parameter(a pointer to the traversed node).
-2. Member Functions: Those traversals are class members of tree structures and traverse the node referred to by the implicit this pointer, 
-Those traversals can be virtual functions, and they should be used along with inheritance to handle type based traversals.
-
-In the example above searching a NullNode does not do anything so the base function is called, while searching a ValueNode performs actual searching.
 
 #### Traversals Language Restrictions:
-Those restriction are enforced by TreeFuser, and if violated TreeFuser should indicate the violation. 
-Yet more testing is needed for robustness.
+* This is a small set of can and can not do things in Grafter tree traversals,
+ yet **not complete**.
 
-1. Return types should be void. (except for abstract accesses).
-2. Traversing Calls cant be conditioned. (except for abstract accesses).
-3. No for loops (mutual recursions can be used to implement that)
-
-What is allowed
-1. Mutual recursions.
-2. If Statement.
-3. Assignment.
-4. Node deletion delete path-to-tree-node
-5. Node creation path-to-tree-node = new ().
-6. Aliasing statement: TreeNodeType * const X = path-to-tree-node
-7. BinaryExpressions (>, <, ==, &&, || ..etc)
-8. NULL Expression.
-9. Calls to other traversals.
-10. Calls to abstract access functions**.
-
-..etc try some other things! 
-                            
-
-
-
+  1. Return types should be void.
+  2. Traversing Calls cant be conditioned.
+  3. No explicit for loops.
+  4. Do not use pointers for data (only for tree nodes).
+* What is allowed?
+  1. Mutual recursions.
+  2. If Statement.
+  3. Assignment.
+  4. Node deletion delete path-to-tree-node
+  5. Node creation path-to-tree-node = new ().
+  6. Aliasing statement: TreeNodeType * const X = path-to-tree-node
+  7. BinaryExpressions (>, <, ==, &&, || ..etc)
+  8. NULL Expression.
+  9. Calls to other traversals.
+  10. Calls to abstract access functions**.
