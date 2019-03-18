@@ -5,18 +5,17 @@
 #define __tree_traversal__ __attribute__((annotate("tf_fuse")))
 #define __abstract_access__(AccessList)                                        \
   __attribute__((annotate("tf_strict_access" #AccessList)))
-#define COUNT
-//#define COUNT Count();
-//#include <assert.h>
+
+#ifdef COUNT_VISITS
+int  _VISIT_COUNTER =0;
+#endif
 
 #include "Types.h"
 #include <stdio.h>
 #include <string>
 #include <vector>
 using namespace std;
-int c = 0;
 
-__abstract_access__("(0,'w','global')") void Count() { c++; }
 
 class __tree_structure__ Node {
 public:
@@ -56,6 +55,7 @@ public:
   __tree_traversal__ void computeHeights();
   __tree_traversal__ void setFont();
   __tree_traversal__ void setPositions();
+  int computeTreeSize() ;
   void print() override;
 };
 
@@ -69,6 +69,8 @@ public:
   virtual __tree_traversal__ void computeHeights(){};
   virtual __tree_traversal__ void setFont(FontInfo FontStyle){};
   virtual __tree_traversal__ void setPositions(){};
+  virtual int computeTreeSize() = 0;
+
 };
 
 class __tree_structure__ PageListEnd : public PageListNode {
@@ -79,6 +81,7 @@ public:
   __tree_traversal__ void setFont(FontInfo FontStyle) override;
   __tree_traversal__ __tree_traversal__ void setPositions() override;
   void print() override;
+  int computeTreeSize() override;
 };
 
 class __tree_structure__ PageListInner : public PageListNode {
@@ -90,6 +93,7 @@ public:
   __tree_traversal__ void setFont(FontInfo FontStyle) override;
   __tree_traversal__ void setPositions() override;
   void print() override;
+  int computeTreeSize() override;
 };
 
 class __tree_structure__ Page : public Node, public Data {
@@ -101,6 +105,7 @@ public:
   __tree_traversal__ void setFont(FontInfo FontStyle);
   __tree_traversal__ void setPositions();
   void print() override;
+  int computeTreeSize() ;
 };
 
 //-------------- Horizontal Containers  ---------------
@@ -114,6 +119,7 @@ public:
   virtual __tree_traversal__ void computeHeights(){};
   virtual __tree_traversal__ void setFont(FontInfo FontStyle){};
   virtual __tree_traversal__ void setPositions(int CurrX, int CurrY){};
+  virtual int computeTreeSize() =0;
 };
 
 class __tree_structure__ HorizontalContainerListEnd
@@ -125,6 +131,7 @@ public:
   __tree_traversal__ void setFont(FontInfo FontStyle) override;
   __tree_traversal__ void setPositions(int CurrX, int CurrY) override;
   void print() override;
+  int computeTreeSize() override;
 };
 
 class __tree_structure__ HorizontalContainerListInner
@@ -137,6 +144,7 @@ public:
   __tree_traversal__ void setFont(FontInfo FontStyle) override;
   __tree_traversal__ void setPositions(int CurrX, int CurrY) override;
   void print() override;
+  int computeTreeSize() override;
 };
 
 class __tree_structure__ HorizontalContainer : public Node, public Data {
@@ -148,6 +156,7 @@ public:
   __tree_traversal__ void setFont(FontInfo FontStyle);
   __tree_traversal__ void setPositions(int CurrX, int CurrY);
   void print() override;
+  int computeTreeSize() ;
 };
 
 //-------------- Elements List ---------------
@@ -161,6 +170,7 @@ public:
   virtual __tree_traversal__ void computeHeights(){};
   virtual __tree_traversal__ void setFont(FontInfo FontStyle){};
   virtual __tree_traversal__ void setPositions(int CurrX, int CurrY){};
+  virtual int computeTreeSize()= 0;
 };
 
 class __tree_structure__ ElementListEnd : public ElementListNode {
@@ -171,6 +181,7 @@ public:
   __tree_traversal__ void setFont(FontInfo FontStyle) override;
   __tree_traversal__ void setPositions(int CurrX, int CurrY) override;
   void print() override;
+  int computeTreeSize() override;
 };
 
 class __tree_structure__ ElementListInner : public ElementListNode {
@@ -182,6 +193,7 @@ public:
   __tree_traversal__ void setFont(FontInfo FontStyle) override;
   __tree_traversal__ void setPositions(int CurrX, int CurrY) override;
   void print() override;
+  int computeTreeSize() override;
 };
 
 //-------------- Elements ---------------
@@ -192,6 +204,8 @@ public:
   virtual __tree_traversal__ void computeHeights(){};
   virtual __tree_traversal__ void setFont(FontInfo FontStyle);
   virtual __tree_traversal__ void setPositions(int CurrX, int CurrY);
+  virtual int computeTreeSize() =0;
+
 };
 
 class __tree_structure__ TextBox : public Element {
@@ -200,6 +214,8 @@ public:
   String ContentText;
   __tree_traversal__ void computeHeights() override;
   void print() override;
+    int computeTreeSize() override;
+
 };
 
 class __tree_structure__ List : public Element {
@@ -208,6 +224,8 @@ public:
   int ItemMargin;
   __tree_traversal__ void computeHeights() override;
   void print() override;
+  int computeTreeSize() override;
+
 };
 
 class __tree_structure__ Image : public Element {
@@ -218,6 +236,8 @@ public:
   String ImageURL;
   __tree_traversal__ void computeHeights() override;
   void print() override;
+  int computeTreeSize() override;
+
 };
 
 class __tree_structure__ VerticalContainer : public Element {
@@ -229,6 +249,8 @@ public:
   __tree_traversal__ void setFont(FontInfo FontStyle) override;
   __tree_traversal__ void setPositions(int CurrX, int CurrY) override;
   void print() override;
+  int computeTreeSize() override;
+
 };
 
 //--------------------------------------------

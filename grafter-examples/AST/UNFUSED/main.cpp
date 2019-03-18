@@ -6,44 +6,36 @@
 #include "Print.h"
 #include "RemoveUnreachableBranches.h"
 #include <chrono>
+using namespace std;
 
 #ifdef PAPI
 #include <iostream>
-using namespace std;
 #include <papi.h>
-#define SIZE 1
+#define SIZE 3
 string instance("Original");
 int ret;
-int events[] = {PAPI_L2_DCA};
-// string defs[] = {"cycles",
-//                  "Instruction Count",
-//                  "L2 Data Access Count",
-//                  "L2 Data Miss Count",
-//                  "Instruction Access Count",
-//                  "L2 Instruction Miss Count",
-//                  "L3 Total Access Count",
-//                  "L3 Total Miss Count"};
+int events[] = {PAPI_L2_TCM, PAPI_L3_TCM, PAPI_TOT_INS};
+string defs[] = {"L2 Cache Misses", "L3 Cache Misses ", "Instructions"};
 
-string defs[] = {"isntr", "PAPI_INT_INS", "PAPI_L1_DCA"};
 long long values[SIZE];
 long long rcyc0, rcyc1, rusec0, rusec1;
 long long vcyc0, vcyc1, vusec0, vusec1;
 
 void init_papi() {
   if (PAPI_library_init(PAPI_VER_CURRENT) != PAPI_VER_CURRENT) {
-    cerr << "PAPI Init Error" << endl;
+    cout << "PAPI Init Error" << endl;
     exit(1);
   }
   for (int i = 0; i < SIZE; ++i) {
     if (PAPI_query_event(events[i]) != PAPI_OK) {
-      cerr << "PAPI Event " << i << " does not exist" << endl;
+      cout << "PAPI Event " << i << " does not exist" << endl;
     }
   }
 }
 void start_counters() {
   // Performance Counters Start
   if (PAPI_start_counters(events, SIZE) != PAPI_OK) {
-    cerr << "PAPI Error starting counters" << endl;
+    cout << "PAPI Error starting counters" << endl;
   }
 }
 void read_counters() {
@@ -56,7 +48,7 @@ void read_counters() {
       cout << "error with arguments" << endl;
     }
 
-    cerr << "PAPI Error reading counters" << endl;
+    cout << "PAPI Error reading counters" << endl;
   }
 }
 void print_counters() {
@@ -71,13 +63,8 @@ void print_counters() {
 #include <vector>
 #define X rand() % 5
 #define Y 0
-
 #include <sys/time.h>
-long long currentTimeInMilliseconds() {
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  return ((tv.tv_sec * 1000) + (tv.tv_usec / 1000));
-}
+
 
 VarRefExpr *createVarRef(int VarRefId) {
   VarRefExpr *ret = new VarRefExpr();
@@ -86,14 +73,6 @@ VarRefExpr *createVarRef(int VarRefId) {
   ret->VarId = VarRefId;
   return ret;
 }
-
-// ConstantExpr *createConstantExpr(int Value) {
-//   auto *ret = new ConstantExpr();
-//   ret->NodeType = EXPR;
-//   ret->ExpressionType = CONSTANT;
-//   ret->Value = Value;
-//   return ret;
-// }
 
 AssignStmt *createExprAssignment(int VarRefId, ExpressionNode *expr) {
   auto *ret = new AssignStmt();
@@ -206,28 +185,26 @@ void optimize(vector<Program *> &ls) {
 #endif
   auto t1 = std::chrono::high_resolution_clock::now();
   for (auto *f : ls) {
-    // f->print();
     f->desugarDecr();
     f->desugarInc();
     f->propagateConstantsAssignments();
     f->foldConstants();
     f->removeUnreachableBranches();
-    //  printf("after:\n");
-    // f->print();
   }
   auto t2 = std::chrono::high_resolution_clock::now();
 #ifdef PAPI
   read_counters();
   print_counters();
 #endif
-  printf("duration iss %llu\n",
-         std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count());
+  printf("Runtime: %llu microseconds\n",
+         std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count());
 }
 
 int main(int argc, char **argv) {
   // number of functions
   int FCount = atoi(argv[1]);
-  int Itters = atoi(argv[2]);
+  // how many tree to create
+  int Itters = 1;
   vector<Program *> ls;
   ls.resize(Itters);
 
@@ -238,5 +215,8 @@ int main(int argc, char **argv) {
   optimize(ls);
 #endif
 
-  printf("visit=%d\n", c);
+#ifdef COUNT_VISITS
+printf("Node Visits: %d\n", _VISIT_COUNTER);
+#endif
+
 }

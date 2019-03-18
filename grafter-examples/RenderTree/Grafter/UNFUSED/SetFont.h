@@ -1,17 +1,35 @@
 #include "RenderTree.h"
 
-void Document::setFont() { PageList->setFont(FontStyle); }
+void Document::setFont() {
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
+
+PageList->setFont(FontStyle); }
 
 void PageListEnd::setFont(FontInfo ParentFontStyle) {
+
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
+
   Content->setFont(ParentFontStyle);
 }
 
 void PageListInner::setFont(FontInfo ParentFontStyle) {
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
+
   Content->setFont(ParentFontStyle);
   NextPage->setFont(ParentFontStyle);
 }
 
 void Page::setFont(FontInfo ParentFontStyle) {
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
+
   if (FontStyle.Size == (0-1))
     FontStyle.Size = ParentFontStyle.Size;
   if (FontStyle.Color == (0-1))
@@ -23,15 +41,27 @@ void Page::setFont(FontInfo ParentFontStyle) {
 }
 
 void HorizontalContainerListEnd::setFont(FontInfo ParentFontStyle) {
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
+
   Content->setFont(ParentFontStyle);
 }
 
 void HorizontalContainerListInner::setFont(FontInfo ParentFontStyle) {
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
+
   Content->setFont(ParentFontStyle);
   Next->setFont(ParentFontStyle);
 }
 
 void HorizontalContainer::setFont(FontInfo ParentFontStyle) {
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
+
   if (FontStyle.Size == (0-1))
     FontStyle.Size = ParentFontStyle.Size;
   if (FontStyle.Color == (0-1))
@@ -43,15 +73,28 @@ void HorizontalContainer::setFont(FontInfo ParentFontStyle) {
 }
 
 void ElementListEnd::setFont(FontInfo ParentFontStyle) {
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
+
   Content->setFont(ParentFontStyle);
 }
 
 void ElementListInner::setFont(FontInfo ParentFontStyle) {
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
+
   Content->setFont(ParentFontStyle);
   Next->setFont(ParentFontStyle);
 }
 
 void Element::setFont(FontInfo ParentFontStyle) {
+
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
+
   if (FontStyle.Size == (0-1))
     FontStyle.Size = ParentFontStyle.Size;
   if (FontStyle.Color == (0-1))
@@ -61,6 +104,10 @@ void Element::setFont(FontInfo ParentFontStyle) {
 }
 
 void VerticalContainer::setFont(FontInfo ParentFontStyle) {
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
+
   if (FontStyle.Size == (0-1))
     FontStyle.Size = ParentFontStyle.Size;
   if (FontStyle.Color == (0-1))

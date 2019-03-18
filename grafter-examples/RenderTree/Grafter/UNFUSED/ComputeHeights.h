@@ -4,7 +4,6 @@
 
 __abstract_access__("(0,'r','global')") inline int computeTextHorizSpace(
     int Length, int FontSize) {
-
   // we can read the info from the map or compute it
   return Length * (FontSize);
 }
@@ -14,35 +13,51 @@ __abstract_access__("(0,'r','global')") inline int getCharHeight(int FontSize) {
 }
 
 __tree_traversal__ void Document::computeHeights() {
-  COUNT
+
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
+
   PageList->computeHeights();
 }
 
 __tree_traversal__ void PageListEnd::computeHeights() {
-  COUNT
+
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
+
   Content->computeHeights();
 }
 
 __tree_traversal__ void PageListInner::computeHeights() {
-  COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
   Content->computeHeights();
   NextPage->computeHeights();
 }
 
 __tree_traversal__ void Page::computeHeights() {
-  COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
   HorizList->computeHeights();
   Height = HorizList->AggregatedHeight;
 }
 
 __tree_traversal__ void HorizontalContainerListEnd::computeHeights() {
-  COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
   Content->computeHeights();
   AggregatedHeight = Content->Height;
 }
 
 __tree_traversal__ void HorizontalContainerListInner::computeHeights() {
-  COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
   Content->computeHeights();
   Next->computeHeights();
   AggregatedHeight = 0;
@@ -51,19 +66,25 @@ __tree_traversal__ void HorizontalContainerListInner::computeHeights() {
 }
 
 __tree_traversal__ void HorizontalContainer::computeHeights() {
-  COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
   ElementsList->computeHeights();
   Height = ElementsList->MaxHeight;
 }
 
 __tree_traversal__ void ElementListEnd::computeHeights() {
-  COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
   Content->computeHeights();
   MaxHeight = Content->Height;
 }
 
 __tree_traversal__ void ElementListInner::computeHeights() {
-  COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
   Content->computeHeights();
   Next->computeHeights();
 
@@ -78,7 +99,9 @@ __abstract_access__("(1,'w','global')") inline void LogErrorFontNotSet() {
 }
 
 __tree_traversal__ void TextBox::computeHeights() {
-  COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
   // make sure passing a reference is workign right lol
   int CharsTotalSpace;
   if (FontStyle.Size == (0 - 1))
@@ -109,18 +132,26 @@ __abstract_access__("(0,'r','global')") inline int computeListHeight(
 }
 
 __tree_traversal__ void List::computeHeights() {
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
   if (FontStyle.Size == (0 - 1))
     LogErrorFontNotSet();
   Height = computeListHeight(Items, FontStyle.Size, ItemMargin, Width);
 }
 
 __tree_traversal__ void Image::computeHeights() {
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
   // keep the same ratio of the original image
   Height = Width * (ImageOriginalHeight / ImageOriginalWidth);
 }
 
 __tree_traversal__ void VerticalContainer::computeHeights() {
-  COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
   HorizList->computeHeights();
   Height = HorizList->AggregatedHeight;
 }

@@ -1,39 +1,53 @@
 #include "AST.h"
 
 __tree_traversal__ void Program::removeUnreachableBranches() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   Functions->removeUnreachableBranches();
 }
 
 __tree_traversal__ void StmtListInner::removeUnreachableBranches() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   Stmt->removeUnreachableBranches();
   Next->removeUnreachableBranches();
 }
 
 __tree_traversal__ void StmtListEnd::removeUnreachableBranches() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   Stmt->removeUnreachableBranches();
 }
 
 __tree_traversal__ void Function::removeUnreachableBranches() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   StmtList->removeUnreachableBranches();
 }
 
 __tree_traversal__ void FunctionListInner::removeUnreachableBranches() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   Content->removeUnreachableBranches();
   Next->removeUnreachableBranches();
 }
 
 __tree_traversal__ void FunctionListEnd::removeUnreachableBranches() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   Content->removeUnreachableBranches();
 }
 
 __tree_traversal__ void IfStmt::removeUnreachableBranches() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   if (Condition->ExpressionType == CONSTANT) {
     auto *const ConstantCond = static_cast<ConstantExpr *>(Condition);
     if (ConstantCond->Value == 0) {

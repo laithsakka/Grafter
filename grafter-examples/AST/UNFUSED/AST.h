@@ -9,9 +9,9 @@ enum ASTStmtType { ASSIGNMENT, IF, NOP, INC, DECR };
 enum ASTExprType { CONSTANT, BINARY, VARREF };
 enum ExprOperator { ADD, SUBTRACT };
 
-int c =0; 
-
-#define COUNT 
+#ifdef COUNT_VISITS
+int _VISIT_COUNTER = 0;
+#endif
 
 class StatementNode;
 

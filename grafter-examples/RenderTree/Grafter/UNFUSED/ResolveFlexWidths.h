@@ -3,33 +3,50 @@
   printf("ERROR: leaf element cant have WMode = FLEX" );
 }
 
- 
+
 __tree_traversal__ void Document::resolveFlexWidths() {
-  COUNT
+
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
+
   PageList->resolveFlexWidths();
 }
 
 __tree_traversal__ void PageListEnd::resolveFlexWidths() {
-  COUNT
+
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
+
   Content->resolveFlexWidths();
 }
 
 __tree_traversal__ void PageListInner::resolveFlexWidths() {
-  COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
+
   Content->resolveFlexWidths();
   NextPage->resolveFlexWidths();
 }
 
 __tree_traversal__ void Page::resolveFlexWidths() {
-  COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
+
   HorizList->resolveFlexWidths();
   if (WMode == FLEX) {
-    Width = HorizList->MaxWidth; 
+    Width = HorizList->MaxWidth;
   }
 }
 
 __tree_traversal__ void HorizontalContainerListInner::resolveFlexWidths() {
-  COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
+
   Content->resolveFlexWidths();
   Next->resolveFlexWidths();
 
@@ -40,35 +57,49 @@ __tree_traversal__ void HorizontalContainerListInner::resolveFlexWidths() {
 }
 
 __tree_traversal__ void HorizontalContainerListEnd::resolveFlexWidths() {
-  COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
+
   Content->resolveFlexWidths();
   MaxWidth = Content->Width;
 }
 
 __tree_traversal__ void HorizontalContainer::resolveFlexWidths() {
-  COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
+
   ElementsList->resolveFlexWidths();
   if (WMode == FLEX) {
     Width = ElementsList->AccumulatedWidth;
-   
   }
 }
 
 __tree_traversal__ void ElementListEnd::resolveFlexWidths() {
-  COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
+
   Content->resolveFlexWidths();
   AccumulatedWidth = Content->Width;
 }
 
 __tree_traversal__ void ElementListInner::resolveFlexWidths() {
-  COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
+
   Next->resolveFlexWidths();
   Content->resolveFlexWidths();
   AccumulatedWidth = Content->Width + Next->AccumulatedWidth;
 }
 
 __tree_traversal__ void VerticalContainer::resolveFlexWidths() {
-  COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
+
   HorizList->resolveFlexWidths();
   if (WMode == FLEX) {
     Width = HorizList->MaxWidth;
@@ -76,7 +107,10 @@ __tree_traversal__ void VerticalContainer::resolveFlexWidths() {
 }
 
 __tree_traversal__ void Element::resolveFlexWidths() {
- COUNT
+  #ifdef COUNT_VISITS
+    _VISIT_COUNTER++;
+  #endif
+
   if (WMode == FLEX) {
     LogError1();
   }

@@ -7,28 +7,38 @@ using namespace std;
 // hide the speed up since it dominates the work, for that purpose it was
 // restricted to top level assignments
 __tree_traversal__ void Program::propagateConstantsAssignments() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   Functions->propagateConstantsAssignments();
 }
 
 __tree_traversal__ void FunctionListEnd::propagateConstantsAssignments() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   Content->propagateConstantsAssignments();
 }
 
 __tree_traversal__ void FunctionListInner::propagateConstantsAssignments() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   Content->propagateConstantsAssignments();
   Next->propagateConstantsAssignments();
 }
 
 __tree_traversal__ void Function::propagateConstantsAssignments() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   StmtList->propagateConstantsAssignments();
 }
 
 __tree_traversal__ void StmtListInner::propagateConstantsAssignments() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   int VarRefId;
   VarRefId = 0 - 1;
   int Value;
@@ -54,18 +64,24 @@ __tree_traversal__ void StmtListInner::propagateConstantsAssignments() {
 }
 
 __tree_traversal__ void StmtListEnd::propagateConstantsAssignments() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   Stmt->propagateConstantsAssignments();
 }
 __tree_traversal__ void IfStmt::propagateConstantsAssignments() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   ThenPart->propagateConstantsAssignments();
   ElsePart->propagateConstantsAssignments();
 }
 
 __tree_traversal__ void StmtListInner::replaceVarRefWithConst(int VarRefId,
                                                               int Val) {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   if (VarRefId == (0 - 1))
     return;
 
@@ -82,7 +98,9 @@ __tree_traversal__ void StmtListInner::replaceVarRefWithConst(int VarRefId,
 
 __tree_traversal__ void StmtListEnd::replaceVarRefWithConst(int VarRefId,
                                                             int Val) {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   if (VarRefId == (0 - 1))
     return;
 
@@ -92,7 +110,9 @@ __tree_traversal__ void StmtListEnd::replaceVarRefWithConst(int VarRefId,
 __tree_traversal__ void AssignStmt::replaceVarRefWithConst(int VarRefId,
                                                            int Val) {
 
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   if (AssignedExpr->ExpressionType == VARREF &&
       static_cast<VarRefExpr *>(AssignedExpr)->VarId == VarRefId) {
 
@@ -106,7 +126,10 @@ __tree_traversal__ void AssignStmt::replaceVarRefWithConst(int VarRefId,
 
 __tree_traversal__ void BinaryExpr::replaceVarRefWithConst(int VarRefId,
                                                            int Val) {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+
+#endif
   LHS->replaceVarRefWithConst(VarRefId, Val);
   RHS->replaceVarRefWithConst(VarRefId, Val);
 
@@ -129,7 +152,9 @@ __tree_traversal__ void BinaryExpr::replaceVarRefWithConst(int VarRefId,
 }
 
 __tree_traversal__ void IfStmt::replaceVarRefWithConst(int VarRefId, int Val) {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   Condition->replaceVarRefWithConst(VarRefId, Val);
   ThenPart->replaceVarRefWithConst(VarRefId, Val);
   ElsePart->replaceVarRefWithConst(VarRefId, Val);

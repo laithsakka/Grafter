@@ -1,27 +1,42 @@
 #include "AST.h"
 
 __tree_traversal__ void Program::foldConstants() {
-  COUNT Functions->foldConstants();
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
+
+  Functions->foldConstants();
 }
 
 __tree_traversal__ void FunctionListEnd::foldConstants() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
+
   Content->foldConstants();
 }
 
 __tree_traversal__ void FunctionListInner::foldConstants() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
+
   Content->foldConstants();
   Next->foldConstants();
 }
 
 __tree_traversal__ void Function::foldConstants() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
+
   StmtList->foldConstants();
 }
 
 __tree_traversal__ void AssignStmt::foldConstants() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   AssignedExpr->foldConstants();
 
   if (AssignedExpr->ExpressionType != BINARY)
@@ -54,18 +69,24 @@ __tree_traversal__ void AssignStmt::foldConstants() {
 }
 
 __tree_traversal__ void StmtListInner::foldConstants() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   Stmt->foldConstants();
   Next->foldConstants();
 }
 
 __tree_traversal__ void StmtListEnd::foldConstants() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   Stmt->foldConstants();
 }
 
 __tree_traversal__ void BinaryExpr::foldConstants() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   LHS->foldConstants();
   RHS->foldConstants();
 
@@ -119,7 +140,9 @@ __tree_traversal__ void BinaryExpr::foldConstants() {
 }
 
 __tree_traversal__ void IfStmt::foldConstants() {
-  COUNT
+#ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+#endif
   Condition->foldConstants();
   ThenPart->foldConstants();
   ElsePart->foldConstants();

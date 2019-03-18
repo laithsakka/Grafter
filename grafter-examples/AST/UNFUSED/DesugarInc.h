@@ -1,23 +1,36 @@
 #include "AST.h"
 
 __tree_traversal__ void Program::desugarInc() {
-  COUNT
+ #ifdef COUNT_VISITS
+ _VISIT_COUNTER++;
+ #endif
   Functions->desugarInc();
 }
 
 __tree_traversal__ void FunctionListInner::desugarInc() {
-  COUNT
+ #ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+  #endif
   Content->desugarInc();
   Next->desugarInc();
 }
 
 __tree_traversal__ void FunctionListEnd::desugarInc() {
-  COUNT Content->desugarInc();
+ #ifdef COUNT_VISITS
+ _VISIT_COUNTER++;
+  #endif
+   Content->desugarInc();
 }
-__tree_traversal__ void Function::desugarInc() { COUNT StmtList->desugarInc(); }
+__tree_traversal__ void Function::desugarInc() {
+  #ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+  #endif
+  StmtList->desugarInc(); }
 
 __tree_traversal__ void StmtListInner::desugarInc() {
-  COUNT
+ #ifdef COUNT_VISITS
+  _VISIT_COUNTER++;
+   #endif
   Stmt->desugarInc();
 
   if (Stmt->StatementType == INC) {
@@ -57,12 +70,16 @@ __tree_traversal__ void StmtListInner::desugarInc() {
   Next->desugarInc();
 }
 __tree_traversal__ void StmtListEnd::desugarInc() {
-  COUNT
+ #ifdef COUNT_VISITS
+ _VISIT_COUNTER++;
+  #endif
   Stmt->desugarInc();
 }
 
 __tree_traversal__ void IfStmt::desugarInc() {
-  COUNT
+ #ifdef COUNT_VISITS
+ _VISIT_COUNTER++;
+ #endif
   ThenPart->desugarInc();
   ElsePart->desugarInc();
 }
