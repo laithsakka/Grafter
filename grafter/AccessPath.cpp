@@ -94,6 +94,9 @@ AccessPath::AccessPath(clang::Expr *SourceExpression,
     }
     break;
   }
+  case Stmt::CXXThisExprClass:
+    parseAccessPath(dyn_cast<clang::CXXThisExpr>(SourceExpression));
+    break;
   default:
     SourceExpression->dump();
     llvm_unreachable("type not supported");
@@ -243,11 +246,6 @@ bool AccessPath::onlyUses(const clang::VarDecl *RootDecl,
     if (!hasChildAnnotation(
             dyn_cast<clang::FieldDecl>(SplittedAccessPath[i].second)))
       return false;
-    // if (!ChildrenSymbols.count(
-    //         dyn_cast<clang::FieldDecl>(SplittedAccessPath[i].second))) {
-    //   assert(false);
-    //   return false;
-    // }
   }
 
   return true;
@@ -420,9 +418,12 @@ const FSM &AccessPath::getWriteAutomata() {
     }
     WriteAutomata->SetFinal(StateId, 0);
 
-    // if the last element is not primitive(int, ..etc)
-    if (!RecordsAnalyzer::isPrimitiveScaler(
-            SplittedAccessPath[SplittedAccessPath.size() - 1].second)) {
+    // if a written access path ends with struct or node then add any transition
+    // we cant do delete this or this = new so we exclude those
+    auto *LastField = SplittedAccessPath[SplittedAccessPath.size() - 1].second;
+
+    bool NonDecreasingCall = LastField == nullptr;
+    if (!NonDecreasingCall && !RecordsAnalyzer::isPrimitiveScaler(LastField)) {
       StateId = WriteAutomata->AddState();
       FSMUtility::addAnyTransition(*WriteAutomata, StateId - 1, StateId);
       FSMUtility::addEpsTransition(*WriteAutomata, StateId, StateId - 1);
@@ -468,10 +469,11 @@ const FSM &AccessPath::getReadAutomata() {
       ReadAutomata->SetFinal(StateId, 0);
     }
 
-    // if not primitive scaler its either a node or CXX  object
+    // if a value access path ends with struct then add any transition
     auto *LastField = SplittedAccessPath[SplittedAccessPath.size() - 1].second;
-    if (!RecordsAnalyzer::isPrimitiveScaler(LastField) && hasValuePart()) {
-
+    bool NonDecreasingCall = LastField == nullptr;
+    if (hasValuePart() && !NonDecreasingCall &&
+        !RecordsAnalyzer::isPrimitiveScaler(LastField)) {
       StateId = ReadAutomata->AddState();
       FSMUtility::addAnyTransition(*ReadAutomata, StateId - 1, StateId);
       FSMUtility::addEpsTransition(*ReadAutomata, StateId, StateId - 1);

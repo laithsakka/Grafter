@@ -12,6 +12,15 @@
 
 #define DEBUG_TYPE "stmt-info"
 
+const CXXRecordDecl *StatementInfo::getTraversedTypeDecl() {
+  assert(IsCallStmt);
+  if (CalledChild == nullptr)
+    return dyn_cast<CXXRecordDecl>(
+        EnclosingFunction->getTraversedTreeTypeDecl());
+  else
+    return getCalledChild()->getType()->getPointeeCXXRecordDecl();
+}
+
 const FSM &StatementInfo::getLocalWritesAutomata() {
   if (!LocalWritesAutomata) {
     LocalWritesAutomata = new FSM();
@@ -149,7 +158,7 @@ void buildFromAccessPath(FSM *FSMachine, int CurrState, AccessPath *AP,
   auto *LastField =
       AP->SplittedAccessPath[AP->SplittedAccessPath.size() - 1].second;
 
-  if (!RecordsAnalyzer::isPrimitiveScaler(LastField) && AP->hasValuePart())
+  if (AP->hasValuePart() && !RecordsAnalyzer::isPrimitiveScaler(LastField))
     FSMUtility::addAnyTransition(*FSMachine, CurrState, CurrState);
 
   FSMachine->SetFinal(CurrState, 0);
@@ -193,8 +202,7 @@ void buildFromCall(
 
   buildFromSimpleStmt(FSMachine, CurrState, CallStmt, ForReads);
 
-  auto *ChildRecord =
-      CallStmt->getCalledChild()->getType()->getPointeeCXXRecordDecl();
+  auto *ChildRecord = CallStmt->getTraversedTypeDecl();
 
   auto CalledChildRecordInfo = RecordsAnalyzer::getRecordInfo(ChildRecord);
 
@@ -241,9 +249,17 @@ void buildFromCall(
       if (ForReads)
         FSMachine->SetFinal(NewState, 0);
     }
-    FSMUtility::addTransition(*FSMachine, CurrState,
-                              FunctionToStateId[Function],
-                              CallStmt->getCalledChild());
+    // this->fx();
+    bool NonDecrTraversal = CallStmt->getCalledChild() == nullptr;
+
+    if (NonDecrTraversal) {
+      FSMUtility::addEpsTransition(*FSMachine, CurrState,
+                                   FunctionToStateId[Function]);
+    } else {
+      FSMUtility::addTransition(*FSMachine, CurrState,
+                                FunctionToStateId[Function],
+                                CallStmt->getCalledChild());
+    }
   }
 }
 
@@ -289,7 +305,7 @@ const FSM &StatementInfo::getExtendedGlobReadsAutomata() {
   if (!ExtendedGlobalReadsAutomata) {
     ExtendedGlobalReadsAutomata = new FSM();
 
-    auto *ChildRecord = getCalledChild()->getType()->getPointeeCXXRecordDecl();
+    auto *ChildRecord = getTraversedTypeDecl();
 
     auto CalledChildRecordInfo = RecordsAnalyzer::getRecordInfo(ChildRecord);
 
@@ -335,7 +351,7 @@ const FSM &StatementInfo::getExtendedGlobWritesAutomata() {
   if (!ExtendedGlobalWritesAutomata) {
     ExtendedGlobalWritesAutomata = new FSM();
 
-    auto *ChildRecord = getCalledChild()->getType()->getPointeeCXXRecordDecl();
+    auto *ChildRecord = getTraversedTypeDecl();
 
     auto CalledChildRecordInfo = RecordsAnalyzer::getRecordInfo(ChildRecord);
 

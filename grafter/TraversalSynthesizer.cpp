@@ -103,7 +103,7 @@ std::string TraversalSynthesizer::createName(
     FuncDecl = FuncDecl->getDefinition();
     if (!FunDeclToNameId.count(FuncDecl)) {
       FunDeclToNameId[FuncDecl] = Count++;
-     LLVM_DEBUG( Logger::getStaticLogger().logInfo(
+      LLVM_DEBUG(Logger::getStaticLogger().logInfo(
           "Function:" + FuncDecl->getQualifiedNameAsString() + "==>" +
           to_string(Count - 1) + "\n"));
     }
@@ -242,7 +242,7 @@ void TraversalSynthesizer::setCallPart(
 
   string AdjustedFlagCode = "unsigned int AdjustedTruncateFlags = 0 ;\n";
 
-  for (auto it = NextCallNodes.rbegin(); it!=NextCallNodes.rend();++it) {
+  for (auto it = NextCallNodes.rbegin(); it != NextCallNodes.rend(); ++it) {
     AdjustedFlagCode += "AdjustedTruncateFlags <<= 1;\n";
     AdjustedFlagCode += "AdjustedTruncateFlags |=("
                         " 0b01 & (truncate_flags >>" +
@@ -303,8 +303,9 @@ void TraversalSynthesizer::setCallPart(
   // if (NextCallName == "__virtualStub14")
   //   assert(false);
 
-  Transformer->performFusion(NexTCallExpressions, /*IsTopLevel*/ false,
-                             nullptr);
+  Transformer->performFusion(
+      NexTCallExpressions, /*IsTopLevel*/ false,
+      CallNode->getStatementInfo()->getEnclosingFunction()->getFunctionDecl());
 
   auto *RootDeclCallNode =
       CallNode->getStatementInfo()->getEnclosingFunction()->isGlobal()
@@ -518,7 +519,8 @@ void TraversalSynthesizer::generateWriteBackInfo(
     }
   }
 
-  string VisitsCounting = "\n#ifdef COUNT_VISITS \n _VISIT_COUNTER++;\n #endif \n";
+  string VisitsCounting =
+      "\n#ifdef COUNT_VISITS \n _VISIT_COUNTER++;\n #endif \n";
 
   WriteBackInfo->Body += VisitsCounting;
   WriteBackInfo->Body += RootCasting;
@@ -632,7 +634,7 @@ void TraversalSynthesizer::WriteUpdates(
                clang::Stmt::CXXMemberCallExprClass) {
       Params += Printer.printStmt(
           CallsExpressions[0]->child_begin()->child_begin()->IgnoreImplicit(),
-          ASTCtx->getSourceManager(), nullptr, "", -1);
+          ASTCtx->getSourceManager(), nullptr, "", -1, false);
     }
 
   } else {
@@ -720,7 +722,6 @@ void TraversalSynthesizer::WriteUpdates(
     string Params = "";
     string Args = "this";
 
-
     int Idx = -1;
     for (auto *Decl : TraversalsDeclarationsList) {
       bool First = true;
@@ -741,7 +742,7 @@ void TraversalSynthesizer::WriteUpdates(
 
     Params +=
         (Params == "" ? "" : ", ") + string("unsigned int truncate_flags");
-    Args += ", truncate_flags" ;
+    Args += ", truncate_flags";
     auto LambdaFun = [&](const CXXRecordDecl *DerivedType) {
       assert(Rewriter::isRewritable(DerivedType->getLocEnd()));
       Rewriter.InsertText(
@@ -978,7 +979,7 @@ void StatementPrinter::print_handleStmt(const clang::Stmt *Stmt,
     break;
   }
   default:
-   LLVM_DEBUG( Stmt->dump());
+    LLVM_DEBUG(Stmt->dump());
     Output += stmtTostr(Stmt, SM);
   }
   return;

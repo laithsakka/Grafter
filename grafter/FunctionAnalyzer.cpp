@@ -340,33 +340,44 @@ bool FunctionAnalyzer::checkFuseSema() {
 
     if (hasFuseAnnotation(Call->getCalleeDecl()->getAsFunction())) {
 
-      AccessPath CalledChildAccessPath(
-          isGlobal()
-              ? Call->getArg(0)
-              : dyn_cast<clang::MemberExpr>(
-                    Call->child_begin()->child_begin()->IgnoreImplicit()),
-          nullptr); // dummmy access path
+      // If the travering call traverses "this" then we will assume the
+      // traversed child to be nullptr
+      if (Call->child_begin()
+              ->child_begin()
+              ->IgnoreImplicit()
+              ->getStmtClass() == clang::Stmt::CXXThisExprClass) {
+        addTraversingCall(
+            Call->getCalleeDecl()->getAsFunction()->getDefinition(), nullptr);
+        ;
+      } else {
+        AccessPath CalledChildAccessPath(
+            isGlobal()
+                ? Call->getArg(0)
+                : dyn_cast<clang::MemberExpr>(
+                      Call->child_begin()->child_begin()->IgnoreImplicit()),
+            nullptr); // dummy access path
+        cout << "after" << endl;
 
-      if (!CalledChildAccessPath.isLegal() ||
-          CalledChildAccessPath.getDepth() != 2) {
-        return Logger::getStaticLogger().logError(
-            "illegal access path in recursive call first argument");
+        if (!CalledChildAccessPath.isLegal() ||
+            CalledChildAccessPath.getDepth() != 2) {
+          return Logger::getStaticLogger().logError(
+              "illegal access path in recursive call first argument");
+        }
+
+        if (!CalledChildAccessPath.onlyUses(
+                TraversedNodeDecl /* would be null for this*/,
+                RecordsAnalyzer::getRecursiveFields(TraversedTreeTypeDecl))) {
+          return Logger::getStaticLogger().logError(
+              "fuse method recursive call is a not traversing a recognized "
+              "child ");
+        }
+
+        clang::FieldDecl *ChildDecl = dyn_cast<clang::FieldDecl>(
+            CalledChildAccessPath.SplittedAccessPath[1].second);
+        assert(ChildDecl != nullptr);
+        addTraversingCall(
+            Call->getCalleeDecl()->getAsFunction()->getDefinition(), ChildDecl);
       }
-
-      if (!CalledChildAccessPath.onlyUses(
-              TraversedNodeDecl /* would be null for this*/,
-              RecordsAnalyzer::getRecursiveFields(TraversedTreeTypeDecl))) {
-        return Logger::getStaticLogger().logError(
-            "fuse method recursive call is a not traversing a recognized "
-            "child ");
-      }
-
-      clang::FieldDecl *ChildDecl = dyn_cast<clang::FieldDecl>(
-          CalledChildAccessPath.SplittedAccessPath[1].second);
-      assert(ChildDecl != nullptr);
-
-      addTraversingCall(Call->getCalleeDecl()->getAsFunction()->getDefinition(),
-                        ChildDecl);
     }
   }
 
@@ -432,7 +443,7 @@ bool FunctionAnalyzer::collectAccessPath_VisitBinaryOperator(
             getTraversedNodeDecl(),
             RecordsAnalyzer::getRecordInfo(getTraversedTreeTypeDecl())
                 .getRecursiveFields())) {
-   
+
       Logger::getStaticLogger().logError(
           "FunctionAnalyzer::collectAccessPath_VisitBinaryOperator: "
           "new statement LHS is not legal");
@@ -616,7 +627,7 @@ bool FunctionAnalyzer::collectAccessPath_VisitCallExpr(clang::CallExpr *Expr) {
 
   if (Expr->getStmtClass() == clang::Stmt::CXXMemberCallExprClass) {
     AccessPath *NewAccessPath = new AccessPath(
-        dyn_cast<clang::MemberExpr>(
+        dyn_cast<clang::Expr>(
             Expr->child_begin()->child_begin()->IgnoreImplicit()),
         this);
     if (!NewAccessPath->isLegal()) {
@@ -664,15 +675,24 @@ bool FunctionAnalyzer::collectAccessPath_VisitCompoundStmt(
                   ->getQualifiedNameAsString());
           return false;
         }
-        AccessPath Arg0(
-            CalledFunction->isGlobal()
-                ? (dyn_cast<clang::CallExpr>(ChildStmt))->getArg(0)
-                : dyn_cast<clang::MemberExpr>(ChildStmt->child_begin()
-                                                  ->child_begin()
-                                                  ->IgnoreImplicit()),
-            nullptr); // dummmy access path
-        CurrStatementInfo->setCalledChild(
-            dyn_cast<clang::FieldDecl>(Arg0.SplittedAccessPath[1].second));
+
+        // self traversing calls
+        if (ChildStmt->child_begin()
+                ->child_begin()
+                ->IgnoreImplicit()
+                ->getStmtClass() == clang::Stmt::CXXThisExprClass) {
+          CurrStatementInfo->setCalledChild(nullptr);
+        } else {
+          AccessPath Arg0(
+              CalledFunction->isGlobal()
+                  ? (dyn_cast<clang::CallExpr>(ChildStmt))->getArg(0)
+                  : dyn_cast<clang::MemberExpr>(ChildStmt->child_begin()
+                                                    ->child_begin()
+                                                    ->IgnoreImplicit()),
+              nullptr); // dummmy access path
+          CurrStatementInfo->setCalledChild(
+              dyn_cast<clang::FieldDecl>(Arg0.SplittedAccessPath[1].second));
+        }
         auto *CalleFuncDecl = dyn_cast<clang::CallExpr>(ChildStmt)
                                   ->getCalleeDecl()
                                   ->getAsFunction()

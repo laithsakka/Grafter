@@ -13,8 +13,8 @@
 #define TREE_FUSER_STATMENT_INFO
 
 #include "FunctionAnalyzer.h"
+#include <stack>
 #include <stdio.h>
-#include<stack>
 
 class StatementInfo {
 private:
@@ -82,13 +82,14 @@ private:
   const FSM &getExtendedGlobWritesAutomata();
 
 public:
-  clang::FunctionDecl * getCalledFunction() const{
-    return CalledFunction;
-  }
+  clang::FunctionDecl *getCalledFunction() const { return CalledFunction; }
   /// Set the called function
-  void setCalledFunction(clang::FunctionDecl * CalledFunc){
+  void setCalledFunction(clang::FunctionDecl *CalledFunc) {
     CalledFunction = CalledFunc->getDefinition();
   }
+
+  // return the type traversed by the traversing call
+  const CXXRecordDecl *getTraversedTypeDecl();
 
   /// Clang ast node that represents the statement
   clang::Stmt *Stmt;

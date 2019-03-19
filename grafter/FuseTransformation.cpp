@@ -77,12 +77,7 @@ AccessPath extractVisitedChild(clang::CallExpr *Call) {
     auto *ExprCallRemoved =
         Call->child_begin()->child_begin()->IgnoreImplicit();
 
-    if (ExprCallRemoved->getStmtClass() == clang::Stmt::DeclRefExprClass)
-      return AccessPath(dyn_cast<clang::DeclRefExpr>(ExprCallRemoved), nullptr);
-    else if (ExprCallRemoved->getStmtClass() == clang::Stmt::MemberExprClass)
-      return AccessPath(dyn_cast<clang::MemberExpr>(ExprCallRemoved), nullptr);
-    else
-      llvm_unreachable("unsupported case");
+    return AccessPath(dyn_cast<clang::Expr>(ExprCallRemoved), nullptr);
 
   } else {
     return AccessPath(Call->getArg(0), nullptr);
@@ -142,10 +137,20 @@ void FusionTransformer::performFusion(
       HasVirtual = true;
   }
   AccessPath AP = extractVisitedChild(Candidate[0]);
-  auto *TraversedType = AP.getDeclAtIndex(AP.SplittedAccessPath.size() - 1)
-                            ->getType()
-                            ->getPointeeCXXRecordDecl();
 
+  bool SelfCall =
+      AP.getDeclAtIndex(AP.SplittedAccessPath.size() - 1) == nullptr;
+  const CXXRecordDecl *TraversedType;
+  if (SelfCall) {
+
+    TraversedType = dyn_cast<CXXRecordDecl>(
+        FunctionsFinder::getFunctionInfo(EnclosingFunctionDecl)
+            ->getTraversedTreeTypeDecl());
+  } else {
+    auto *TraversedType = AP.getDeclAtIndex(AP.SplittedAccessPath.size() - 1)
+                              ->getType()
+                              ->getPointeeCXXRecordDecl();
+  }
   auto fuseFunctions = [&](const CXXRecordDecl *DerivedType) {
     if (!Synthesizer->isGenerated(Candidate, HasVirtual, DerivedType)) {
       Logger::getStaticLogger().logInfo(
@@ -157,7 +162,7 @@ void FusionTransformer::performFusion(
       DependenceGraph *DepGraph =
           DepAnalyzer.createDependenceGraph(Candidate, HasVirtual, DerivedType);
 
-     // DepGraph->dump();
+      // DepGraph->dump();
 
       performGreedyFusion(DepGraph);
 
@@ -171,7 +176,7 @@ void FusionTransformer::performFusion(
 
       Synthesizer->generateWriteBackInfo(Candidate, ToplogicalOrder, HasVirtual,
                                          HasCXXMethod, DerivedType);
-     // Logger::getStaticLogger().logDebug("Code Generation Done ");
+      // Logger::getStaticLogger().logDebug("Code Generation Done ");
     }
   };
   if (HasVirtual) {

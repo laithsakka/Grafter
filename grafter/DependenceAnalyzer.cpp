@@ -158,9 +158,9 @@ void DependenceAnalyzer::addInterTraversalDependecies(
 
   for (auto *Stmt1 : Traversal1->getStatements()) {
     // FSMUtility::print(Stmt1->getTreeWritesAutomata(),
-    //                   to_string(Stmt1->getStatementId()) + "w", 0);
+    //                   (Traversal1->getFunctionDecl()->getNameAsString())+ to_string(Stmt1->getStatementId()) + "w", 0);
     // FSMUtility::print(Stmt1->getTreeReadsAutomata(),
-    //                   to_string(Stmt1->getStatementId()) + "r", 0);
+    //                   (Traversal1->getFunctionDecl()->getNameAsString())+ to_string(Stmt1->getStatementId()) + "r", 0);
 
     for (auto *Stmt2 : Traversal2->getStatements()) {
 
