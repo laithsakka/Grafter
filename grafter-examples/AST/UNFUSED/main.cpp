@@ -1,11 +1,19 @@
 #include "AST.h"
+#include "ASTBuilder.h"
 #include "ConstantFolding.h"
 #include "ConstantPropagationAssigment.h"
 #include "DesugarDec.h"
 #include "DesugarInc.h"
 #include "Print.h"
 #include "RemoveUnreachableBranches.h"
+#include "computeSize.h"
 #include <chrono>
+#include <stdlib.h>
+#include <sys/time.h>
+#include <vector>
+
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 using namespace std;
 
 #ifdef PAPI
@@ -57,127 +65,6 @@ void print_counters() {
 }
 #endif
 
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-
-#include <stdlib.h>
-#include <vector>
-#define X rand() % 5
-#define Y 0
-#include <sys/time.h>
-
-
-VarRefExpr *createVarRef(int VarRefId) {
-  VarRefExpr *ret = new VarRefExpr();
-  ret->NodeType = EXPR;
-  ret->ExpressionType = VARREF;
-  ret->VarId = VarRefId;
-  return ret;
-}
-
-AssignStmt *createExprAssignment(int VarRefId, ExpressionNode *expr) {
-  auto *ret = new AssignStmt();
-  ret->NodeType = ASTNodeType::STMT;
-  ret->StatementType = ASSIGNMENT;
-  ret->AssignedExpr = expr;
-  ret->Id = new VarRefExpr();
-  ((VarRefExpr *)ret->Id)->NodeType = EXPR;
-  ((VarRefExpr *)ret->Id)->ExpressionType = VARREF;
-  ((VarRefExpr *)ret->Id)->VarId = VarRefId;
-  return ret;
-}
-
-BinaryExpr *createAddExpr(ExpressionNode *lhs, ExpressionNode *rhs) {
-  auto *ret = new BinaryExpr();
-  ret->NodeType = ASTNodeType::STMT;
-  ret->ExpressionType = BINARY;
-  ret->LHS = lhs;
-  ret->RHS = rhs;
-  ret->Operator = ADD;
-  return ret;
-}
-IfStmt *createIf();
-StmtListInner *createListOfStmt(int N, bool AddIf = false) {
-  auto *ret = new StmtListInner();
-  ret->NodeType = ASTNodeType::SEQ;
-
-  ret->Stmt = createExprAssignment(X, createVarRef(X));
-  StmtListNode *currStmt = ret;
-  for (int i = 0; i < N; i++) {
-
-    ((StmtListInner *)currStmt)->Next = new StmtListInner();
-    ((StmtListInner *)currStmt)->Next->NodeType = ASTNodeType::SEQ;
-
-    ((StmtListInner *)currStmt)->Next->Stmt = createExprAssignment(
-        X, createAddExpr(
-               createAddExpr(createAddExpr(createAddExpr(createVarRef(X),
-                                                         createVarRef(X)),
-                                           createVarRef(X)),
-                             createVarRef(X)),
-               createVarRef(X)));
-    currStmt = ((StmtListInner *)currStmt)->Next;
-  }
-  ((StmtListInner *)currStmt)->Next = new StmtListEnd();
-  if (AddIf)
-    ((StmtListInner *)currStmt)->Next->Stmt = createIf();
-  else {
-    ((StmtListInner *)currStmt)->Next->Stmt = createExprAssignment(
-        X, createAddExpr(
-               createAddExpr(createAddExpr(createAddExpr(createVarRef(X),
-                                                         createVarRef(X)),
-                                           createVarRef(X)),
-                             createVarRef(X)),
-               createVarRef(X)));
-  }
-  return ret;
-}
-
-IfStmt *createIf() {
-  IfStmt *ret = new IfStmt();
-  ret->NodeType = STMT;
-  ret->StatementType = IF;
-  ret->Condition = createAddExpr(createVarRef(X), createVarRef(X));
-  ret->ThenPart = createListOfStmt(5);
-  ret->ElsePart = createListOfStmt(5);
-  return ret;
-}
-
-IncrStmt *createIncr() {
-  IncrStmt *ret = new IncrStmt();
-  ret->NodeType = STMT;
-  ret->StatementType = INC;
-  ret->Id = createVarRef(Y);
-  return ret;
-}
-
-Function *createFunction(int i) {
-  Function *ret = new Function();
-  ret->FunctionName = "F" + std::to_string((long long)i);
-  ret->NodeType = ASTNodeType::FUNCTION;
-  ret->StmtList = new StmtListInner();
-  ret->StmtList->Stmt = createExprAssignment(Y, createVarRef(X));
-
-  ((StmtListInner *)(ret->StmtList))->Next = new StmtListInner();
-  ((StmtListInner *)(ret->StmtList))->Next->Stmt = createIncr();
-
-  ((StmtListInner *)(((StmtListInner *)(ret->StmtList))->Next))->Next =
-      createListOfStmt(5, true);
-  return ret;
-}
-
-Program *createProgram(int FCount) {
-  auto ret = new Program();
-  ret->Functions = new FunctionListInner();
-  auto *CurrF = ret->Functions;
-  for (int i = 0; i < FCount - 2; i++) {
-    CurrF->Content = createFunction(i);
-    ((FunctionListInner *)CurrF)->Next = new FunctionListInner();
-    CurrF = ((FunctionListInner *)CurrF)->Next;
-  }
-  CurrF->Content = createFunction(FCount);
-  ((FunctionListInner *)CurrF)->Next = new FunctionListEnd();
-  ((FunctionListInner *)CurrF)->Next->Content = createFunction(FCount + 1);
-  return ret;
-}
 void optimize(vector<Program *> &ls) {
 
 #ifdef PAPI
@@ -185,38 +72,55 @@ void optimize(vector<Program *> &ls) {
 #endif
   auto t1 = std::chrono::high_resolution_clock::now();
   for (auto *f : ls) {
+    // f->print();
     f->desugarDecr();
     f->desugarInc();
     f->propagateConstantsAssignments();
     f->foldConstants();
     f->removeUnreachableBranches();
+    //   f->print();
   }
   auto t2 = std::chrono::high_resolution_clock::now();
 #ifdef PAPI
   read_counters();
   print_counters();
 #endif
-  printf("Runtime: %llu microseconds\n",
-         std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count());
+  printf(
+      "Runtime: %llu microseconds\n",
+      std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count());
+  printf("Tree Size:%d\n", ls[0]->computeSize());
 }
 
 int main(int argc, char **argv) {
   // number of functions
   int FCount = atoi(argv[1]);
+
+  int Prog = atoi(argv[2]);
   // how many tree to create
   int Itters = 1;
   vector<Program *> ls;
   ls.resize(Itters);
 
-  for (int i = 0; i < Itters; i++)
-    ls[i] = createProgram(FCount);
-
+  for (int i = 0; i < Itters; i++) {
+    switch (Prog) {
+    case 1: // random function of regular size repeated many times (horiz AST)
+      ls[i] = createProgram1(FCount);
+      break;
+    case 2: // the ast is a really large function (vert AST)
+      ls[i] = createLargeFunctionProg(FCount);
+      break;
+    case 3: // the ast is a really large function (vert AST)
+      ls[i] = createLongLiveRangeProg(FCount, FCount);
+      break;
+    default:
+      break;
+    }
+  }
 #ifndef BUILD_ONLY
   optimize(ls);
 #endif
 
 #ifdef COUNT_VISITS
-printf("Node Visits: %d\n", _VISIT_COUNTER);
+  printf("Node Visits: %d\n", _VISIT_COUNTER);
 #endif
-
 }
