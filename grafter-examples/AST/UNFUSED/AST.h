@@ -26,7 +26,7 @@ public:
   __tree_traversal__ virtual void deleteChildren(){};
   __tree_traversal__ virtual void desugarInc(){};
   __tree_traversal__ virtual void desugarDecr(){};
-
+  virtual int computeSize() { return 0; };
   virtual void print(){};
   bool ChangedFolding = false;
   bool ChangedPropagation = false;
@@ -47,6 +47,7 @@ public:
   __tree_traversal__ void removeUnreachableBranches() override;
   __tree_traversal__ void desugarInc() override;
   __tree_traversal__ void desugarDecr() override;
+  int computeSize() override;
 
   void print() override;
 };
@@ -60,6 +61,7 @@ public:
   __tree_traversal__ void removeUnreachableBranches() override;
   __tree_traversal__ void desugarInc() override;
   __tree_traversal__ void desugarDecr() override;
+  int computeSize() override;
 
   void print() override;
 };
@@ -73,6 +75,7 @@ public:
   __tree_traversal__ void removeUnreachableBranches() override;
   __tree_traversal__ void desugarInc() override;
   __tree_traversal__ void desugarDecr() override;
+  int computeSize() override;
 
   void print() override;
 };
@@ -90,6 +93,7 @@ public:
   __tree_traversal__ void removeUnreachableBranches() override;
   __tree_traversal__ void desugarInc() override;
   __tree_traversal__ void desugarDecr() override;
+  int computeSize() override;
 
   void print() override;
 };
@@ -101,20 +105,21 @@ public:
   __tree_traversal__ void removeUnreachableBranches() override;
   __tree_traversal__ void desugarInc() override;
   __tree_traversal__ void desugarDecr() override;
+  int computeSize() override;
 
   void print() override;
 };
 
-class __tree_structure__ Program : public FunctionList {
+class __tree_structure__ Program : public ASTNode {
 public:
   __tree_child__ FunctionList *Functions;
-  __tree_traversal__ void foldConstants() override;
-  __tree_traversal__ void propagateConstantsAssignments() override;
-  __tree_traversal__ void removeUnreachableBranches() override;
-  __tree_traversal__ void desugarInc() override;
-  __tree_traversal__ void desugarDecr() override;
-
-  void print() override;
+  __tree_traversal__ void foldConstants();
+  __tree_traversal__ void propagateConstantsAssignments();
+  __tree_traversal__ void removeUnreachableBranches();
+  __tree_traversal__ void desugarInc();
+  __tree_traversal__ void desugarDecr();
+  int computeSize();
+  void print();
 };
 
 class __tree_structure__ ExpressionNode : public ASTNode {
@@ -129,19 +134,25 @@ public:
   ExprOperator Operator;
   __tree_traversal__ void foldConstants() override;
   __tree_traversal__ void replaceVarRefWithConst(int VarRefId,
+
                                                  int Val) override;
+  int computeSize() override;
   void print() override;
 };
 
 class __tree_structure__ VarRefExpr : public ExpressionNode {
 public:
   int VarId;
+  int computeSize() override;
+
   void print() override;
 };
 
 class __tree_structure__ ConstantExpr : public ExpressionNode {
 public:
   int Value;
+  int computeSize() override;
+
   void print() override;
 };
 class __tree_structure__ StatementNode : public ASTNode {
@@ -157,6 +168,7 @@ public:
   __tree_traversal__ void foldConstants() override;
   __tree_traversal__ void replaceVarRefWithConst(int VarRefId,
                                                  int Val) override;
+  int computeSize() override;
 
   void print() override;
 };
@@ -164,12 +176,16 @@ public:
 class __tree_structure__ IncrStmt : public StatementNode {
 public:
   __tree_child__ VarRefExpr *Id;
+  int computeSize() override;
+
   void print() override;
 };
 
 class __tree_structure__ DecrStmt : public StatementNode {
 public:
   __tree_child__ VarRefExpr *Id;
+  int computeSize() override;
+
   void print() override;
 };
 
@@ -187,11 +203,13 @@ public:
   __tree_traversal__ void removeUnreachableBranches() override;
   __tree_traversal__ void desugarInc() override;
   __tree_traversal__ void desugarDecr() override;
+  int computeSize() override;
 
   void print() override;
 };
 
 class __tree_structure__ NullStmt : public StatementNode {
+
 public:
 };
 
