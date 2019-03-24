@@ -356,7 +356,6 @@ bool FunctionAnalyzer::checkFuseSema() {
                 : dyn_cast<clang::MemberExpr>(
                       Call->child_begin()->child_begin()->IgnoreImplicit()),
             nullptr); // dummy access path
-        cout << "after" << endl;
 
         if (!CalledChildAccessPath.isLegal() ||
             CalledChildAccessPath.getDepth() != 2) {

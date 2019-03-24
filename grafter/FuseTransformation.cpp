@@ -147,7 +147,7 @@ void FusionTransformer::performFusion(
         FunctionsFinder::getFunctionInfo(EnclosingFunctionDecl)
             ->getTraversedTreeTypeDecl());
   } else {
-    auto *TraversedType = AP.getDeclAtIndex(AP.SplittedAccessPath.size() - 1)
+    TraversedType = AP.getDeclAtIndex(AP.SplittedAccessPath.size() - 1)
                               ->getType()
                               ->getPointeeCXXRecordDecl();
   }
