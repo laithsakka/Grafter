@@ -147,7 +147,8 @@ bool FunctionAnalyzer::collectAccessPath_VisitCXXMemberCallExpr(
   assert(Expr->getStmtClass() == Stmt::CXXMemberCallExprClass);
   auto *CxxMemberCall = dyn_cast<clang::CXXMemberCallExpr>(Expr);
 
-  assert(false && "Not supported yet in TreeFuser2");
+  Logger::getStaticLogger().logWarn(
+      "Strict accesses are used but not well tested yet on grafter");
 
   if (!hasStrictAccessAnnotation(CxxMemberCall->getCalleeDecl())) {
     return Logger::getStaticLogger().logError(
@@ -655,6 +656,14 @@ bool FunctionAnalyzer::collectAccessPath_VisitCompoundStmt(
           hasFuseAnnotation(dyn_cast<clang::CallExpr>(ChildStmt)
                                 ->getCalleeDecl()
                                 ->getAsFunction());
+
+      if (isTraversingCall) {
+        auto *CalledFunction = dyn_cast<clang::CallExpr>(ChildStmt)
+                                   ->getCalleeDecl()
+                                   ->getAsFunction()
+                                   ->getDefinition();
+        isTraversingCall &= !hasStrictAccessAnnotation(CalledFunction);
+      }
 
       CurrStatementInfo = new StatementInfo(ChildStmt, this, isTraversingCall,
                                             getStatements().size());

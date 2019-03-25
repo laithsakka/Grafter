@@ -72,12 +72,14 @@ AccessPath::AccessPath(clang::Expr *SourceExpression,
         "StrictOnTreeAccess" + to_string(AnnotationInfo->Id) + "(" +
         CallExpression->getCalleeDecl()->getAsFunction()->getNameAsString() +
         ")";
+    FSMUtility::addSymbol(AnnotationInfo->Id);
 
     auto &FirstParameter = **(*CallExpression->child_begin())->child_begin();
 
-    // TODO: only one parameter supported for now i assume
+    // TODO: only one parameter supported for now I assume ( ok .. lol)
     assert(std::next((*CallExpression->child_begin())->child_begin()) ==
-           (*CallExpression->child_begin())->child_end());
+               (*CallExpression->child_begin())->child_end() &&
+           "one par for local access path for now");
 
     if (FirstParameter.IgnoreImplicit()->getStmtClass() ==
         Stmt::MemberExprClass) {
@@ -85,7 +87,7 @@ AccessPath::AccessPath(clang::Expr *SourceExpression,
           dyn_cast<clang::MemberExpr>(FirstParameter.IgnoreImplicit()));
     } else if (FirstParameter.IgnoreImplicit()->getStmtClass() ==
                Stmt::DeclRefExprClass) {
-      // Is this possible
+
       parseAccessPath(
           dyn_cast<clang::DeclRefExpr>(FirstParameter.IgnoreImplicit()));
 
@@ -208,7 +210,7 @@ AccessPath::AccessPath(clang::FunctionDecl *FunctionDeclaration,
     IsDummy = true;
   AccessPathString = "strictOffTreeAccess" + to_string(AnnotationInfo.Id) +
                      "(" + FunctionDeclaration->getNameAsString() + ")";
-
+  FSMUtility::addSymbol(AnnotationInfo.Id);
   // this->SplittedAccessPath.push_back(make_pair(FunctionDeclaration->getNameAsString(),
   //  Dummy));
   ValueStartIndex = 0;
@@ -398,8 +400,27 @@ const FSM &AccessPath::getWriteAutomata() {
                                                   StateId, AnnotationInfo.Id);
         WriteAutomata->SetFinal(StateId, 0);
         return *WriteAutomata;
-      } else
-        llvm_unreachable("not supported in Treefuser2 yet!");
+      } else {
+        bool First = true;
+        for (auto &Entry : SplittedAccessPath) {
+
+          if (First && isOnTree()) {
+            StateId = WriteAutomata->AddState();
+            FSMUtility::addTraversedNodeTransition(*WriteAutomata, StateId - 1,
+                                                   StateId);
+            First = false;
+            continue;
+          }
+          StateId = WriteAutomata->AddState();
+          FSMUtility::addTransition(*WriteAutomata, StateId - 1, StateId,
+                                    Entry.second);
+        }
+        StateId = WriteAutomata->AddState();
+        FSMUtility::addTransitionOnAbstractAccess(*WriteAutomata, StateId - 1,
+                                                  StateId, AnnotationInfo.Id);
+        WriteAutomata->SetFinal(StateId, 0);
+        return *WriteAutomata;
+      }
     }
 
     bool First = true;
@@ -448,13 +469,37 @@ const FSM &AccessPath::getReadAutomata() {
 
         ReadAutomata->SetFinal(StateId, 0);
         return *ReadAutomata;
-      } else
-        llvm_unreachable("not supported in Treefuser2 yet!");
+      } else {
+
+        // Add the traversed child satarting with the traversed node
+        bool First = true;
+
+        for (auto &Entry : SplittedAccessPath) {
+          if (First && isOnTree()) {
+            StateId = ReadAutomata->AddState();
+            FSMUtility::addTraversedNodeTransition(*ReadAutomata, StateId - 1,
+                                                   StateId);
+            ReadAutomata->SetFinal(StateId, 0);
+            First = false;
+            continue;
+          }
+          StateId = ReadAutomata->AddState();
+          FSMUtility::addTransition(*ReadAutomata, StateId - 1, StateId,
+                                    Entry.second);
+          ReadAutomata->SetFinal(StateId, 0);
+        }
+
+        StateId = ReadAutomata->AddState();
+        FSMUtility::addTransitionOnAbstractAccess(*ReadAutomata, StateId - 1,
+                                                  StateId, AnnotationInfo.Id);
+        ReadAutomata->SetFinal(StateId, 0);
+
+        return *ReadAutomata;
+      }
     }
 
     bool First = true;
     for (auto &Entry : SplittedAccessPath) {
-
       if (First && isOnTree()) {
         StateId = ReadAutomata->AddState();
         FSMUtility::addTraversedNodeTransition(*ReadAutomata, StateId - 1,

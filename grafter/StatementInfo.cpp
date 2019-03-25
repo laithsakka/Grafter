@@ -155,10 +155,20 @@ void buildFromAccessPath(FSM *FSMachine, int CurrState, AccessPath *AP,
     if (Reads)
       FSMachine->SetFinal(NewState, 0);
   }
+  if (AP->isStrictAccessCall()) {
+    int NewState = FSMachine->AddState();
+    FSMUtility::addTransitionOnAbstractAccess(*FSMachine, CurrState, NewState,
+                                              AP->getAnnotationInfo().Id);
+    CurrState = NewState;
+    if (Reads)
+      FSMachine->SetFinal(CurrState, 0);
+  }
+
   auto *LastField =
       AP->SplittedAccessPath[AP->SplittedAccessPath.size() - 1].second;
 
-  if (AP->hasValuePart() && !RecordsAnalyzer::isPrimitiveScaler(LastField))
+  if (!AP->isStrictAccessCall() && AP->hasValuePart() &&
+      !RecordsAnalyzer::isPrimitiveScaler(LastField))
     FSMUtility::addAnyTransition(*FSMachine, CurrState, CurrState);
 
   FSMachine->SetFinal(CurrState, 0);
