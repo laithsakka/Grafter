@@ -63,6 +63,7 @@ public:
   __tree_traversal__ virtual void divConst(float c){};
   __tree_traversal__ virtual void differentiate(){};
   __tree_traversal__ virtual void mulVar(){};
+  __tree_traversal__ virtual void rangeMulConst(float c, float _s, float _e){};
 };
 
 class __tree_structure__ Leaf : public Node {
@@ -74,6 +75,7 @@ public:
   __tree_traversal__ void divConst(float c) override;
   __tree_traversal__ void differentiate() override;
   __tree_traversal__ void mulVar() override;
+  __tree_traversal__ void rangeMulConst(float c, float _s, float _e) override;
 };
 class __tree_structure__ Inner : public Node {
 public:
@@ -85,6 +87,7 @@ public:
   __tree_traversal__ void divConst(float c) override;
   __tree_traversal__ void differentiate() override;
   __tree_traversal__ void mulVar() override;
+  __tree_traversal__ void rangeMulConst(float c, float _s, float _e) override;
 };
 
 __tree_traversal__ void Leaf::buildTree(int d, int size, float s, float e) {
@@ -148,14 +151,30 @@ __tree_traversal__ void Inner::differentiate() {
   r->differentiate();
 }
 
-__tree_traversal__ void Leaf::mulVar() { coeff->mulVar(); }
+__tree_traversal__ void Leaf::differentiate() { coeff->differentiate(); }
 
 __tree_traversal__ void Inner::mulVar() {
   l->mulVar();
   r->mulVar();
 }
 
-__tree_traversal__ void Leaf::differentiate() { coeff->differentiate(); }
+__tree_traversal__ void Leaf::mulVar() { coeff->mulVar(); }
+
+
+__tree_traversal__ void Inner::rangeMulConst(float c, float _s, float _e) {
+  float m = (startDom + endDom)/2;
+  if ( _s < m && _e > m ){
+    l->rangeMulConst(c, _s, m);
+    r->rangeMulConst(c, m, _e);
+  } else if (_s > m) {
+    r->rangeMulConst(c, _s, _e);
+  } else if (_e < m) {
+    l->rangeMulConst(c, _s, _e);
+  }
+
+}
+
+__tree_traversal__ void Leaf::rangeMulConst(float c, float _s, float _e) {}
 
 int main() {
   Node *root = new Inner();
