@@ -7,7 +7,6 @@
 #include <cstdlib>
 #include <iostream>
 #include <vector>
-#define DEPTH 5
 
 enum NodeType
 {
@@ -143,7 +142,7 @@ public:
   float projectVal;
 
   virtual void print(){};
-  __tree_traversal__ virtual void buildTree(int d, int size, float s, float e){};
+  __tree_traversal__ virtual void buildTree(int depth, int d, int size, float s, float e){};
   __tree_traversal__ virtual void addConst(float c){};
   __tree_traversal__ virtual void multConst(float c){};
   __tree_traversal__ virtual void divConst(float c){};
@@ -162,7 +161,7 @@ public:
   __tree_child__ Node *l;
   __tree_child__ Node *r;
   void print() override;
-  __tree_traversal__ void buildTree(int d, int size, float s, float e) override;
+  __tree_traversal__ void buildTree(int depth, int d, int size, float s, float e) override;
   __tree_traversal__ void addConst(float c) override;
   __tree_traversal__ void multConst(float c) override;
   __tree_traversal__ void divConst(float c) override;
@@ -182,7 +181,7 @@ class __tree_structure__ Leaf : public Node
 public:
   __tree_child__ Poly *coeff;
   void print() override;
-  __tree_traversal__ void buildTree(int d, int size, float s, float e) override;
+  __tree_traversal__ void buildTree(int depth, int d, int size, float s, float e) override;
   __tree_traversal__ void addConst(float c) override;
   __tree_traversal__ void multConst(float c) override;
   __tree_traversal__ void divConst(float c) override;
@@ -208,40 +207,40 @@ void Leaf::print()
 }
 
 // build a balanced kd-tree
-__tree_traversal__ void Inner::buildTree(int d, int size, float s, float e)
+__tree_traversal__ void Inner::buildTree(int depth, int d, int size, float s, float e)
 {
   startDom = s;
   endDom = e;
   projectVal = 0.0;
 
-  if (d == DEPTH - 1)
+  if (d == depth - 1)
   {
     l = new Leaf();
     l->type = LEAF;
   }
 
-  if (d == DEPTH - 1)
+  if (d == depth - 1)
   {
     r = new Leaf();
     r->type = LEAF;
   }
-  if (d < DEPTH - 1)
+  if (d < depth - 1)
   {
     l = new Inner();
     l->type = INNER;
   }
 
-  if (d < DEPTH - 1)
+  if (d < depth - 1)
   {
     r = new Inner();
     r->type = INNER;
   }
 
-  l->buildTree(d, size, s, (s + e) / 2);
-  r->buildTree(d, size, (s + e) / 2, e);
+  l->buildTree(depth, d+1, size, s, (s + e) / 2);
+  r->buildTree(depth, d+1, size, (s + e) / 2, e);
 }
 
-__tree_traversal__ void Leaf::buildTree(int d, int size, float s, float e)
+__tree_traversal__ void Leaf::buildTree(int depth, int d, int size, float s, float e)
 {
   startDom = s;
   endDom = e;
@@ -607,7 +606,7 @@ __tree_traversal__ void Leaf::square() { coeff->square(); }
 int main()
 {
   Node *root = new Inner();
-  root->buildTree(0, 1, 0, 1);
+  root->buildTree(5, 0, 1, 0, 1);
   // f =((f+1)*x*x+10)' f(x) = x^2 + 10
   root->addConst(1);
   root->mulVar();
