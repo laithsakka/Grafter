@@ -614,5 +614,9 @@ int main()
   root->addConst(10);
   root->differentiate();
   root->print();
+
+  //Experiment 1
+  //Experiment 2
+  //Experiment 3
   return 0;
 };
