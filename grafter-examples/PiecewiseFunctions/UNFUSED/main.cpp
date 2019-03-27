@@ -14,12 +14,6 @@ enum NodeType
   INNER
 };
 // polynomial representation as an array
-class VectorSTD
-{
-public:
-  std::vector<float> arr;
-};
-
 class __tree_structure__ Poly
 {
 public:
@@ -37,10 +31,11 @@ public:
     std::cout << std::endl;
   }
 
-  __abstract_access__("(1,'w','local')") inline void assignCoeff(int size)
+  __abstract_access__("(1,'w','local')") inline void assignCoeff(int _size)
   {
-    size = size;
+    size = _size;
     arr.resize(size, 0);
+    //for(int i = 0; i < size; i++) arr.push_back(1);
   }
   __abstract_access__("(1,'w','local')") inline void addCons(float c)
   {
@@ -73,8 +68,11 @@ public:
   }
   __abstract_access__("(1, 'w', 'local')") inline void mulVar()
   {
-    float tmp[] = {0};
-    arr.insert(arr.begin(), tmp, tmp + 1);
+    //float tmp[] = {0};
+    if(arr.size()==0)
+      arr.push_back(0);
+    else
+      arr.insert(arr.begin(), 0);
     size++;
   }
 
@@ -96,7 +94,7 @@ public:
         pa_ *= _a;
         pb_ *= _b;
       }
-      ret += arr[i] * (pa_ - pb_);
+      ret += arr[i] * (pb_ - pa_)/(i+1);
     }
     return ret;
   }
@@ -120,6 +118,7 @@ public:
     int N = size;
     int M = N * N;
     sarr.resize(M, 0);
+    //for(int i = 0; i < M; i++) sarr.push_back(0);
 
     for (int i = 0; i < size; i++)
     {
@@ -245,6 +244,7 @@ __tree_traversal__ void Leaf::buildTree(int depth, int d, int size, float s, flo
   startDom = s;
   endDom = e;
   projectVal = 0.0;
+  coeff = new Poly();
   coeff->assignCoeff(size);
 }
 
@@ -311,12 +311,12 @@ __tree_traversal__ void Inner::splitLeft(float _s, float _e)
     if ((_s > l->startDom && _s < l->endDom) &&
         (_e > l->startDom && _e < l->endDom))
     {
-      int s1 = l->startDom;
-      int e1 = _s;
-      int s2 = e1;
-      int e2 = _e;
-      int s3 = e2;
-      int e3 = l->endDom;
+      float s1 = l->startDom;
+      float e1 = _s;
+      float s2 = e1;
+      float e2 = _e;
+      float s3 = e2;
+      float e3 = l->endDom;
 
       Leaf *const oldNode = static_cast<Leaf *>(l);
       l = new Inner();
@@ -327,6 +327,8 @@ __tree_traversal__ void Inner::splitLeft(float _s, float _e)
 
       // create node Inner1 and leaf1
       newInner1->l = new Leaf();
+      static_cast<Leaf*>(newInner1->l)->coeff = new Poly();
+      
       newInner1->l->type = LEAF;
       newInner1->l->startDom = s1;
       newInner1->l->endDom = e1;
@@ -334,36 +336,40 @@ __tree_traversal__ void Inner::splitLeft(float _s, float _e)
 
       // creating Inner2 and leaf2, and leaf3
       newInner1->r = new Inner();
-      auto *const newInner2 = static_cast<Inner *>(newInner1->l);
+      auto *const newInner2 = static_cast<Inner *>(newInner1->r);
       newInner2->type = INNER;
       newInner2->startDom = s2;
       newInner2->endDom = e3;
 
       newInner2->l = new Leaf();
+      static_cast<Leaf*>(newInner2->l)->coeff = new Poly();
+      
       newInner2->l->type = LEAF;
       newInner2->l->startDom = s2;
       newInner2->l->endDom = e2;
       static_cast<Leaf *>(newInner2->l)->coeff->setArray(oldNode->coeff->arr, oldNode->coeff->size);
 
       newInner2->r = new Leaf();
+      static_cast<Leaf*>(newInner2->r)->coeff = new Poly();
+      
       newInner2->r->type = LEAF;
-      newInner2->r->startDom = s2;
-      newInner2->r->endDom = e2;
+      newInner2->r->startDom = s3;
+      newInner2->r->endDom = e3;
       static_cast<Leaf *>(newInner2->r)->coeff->setArray(oldNode->coeff->arr, oldNode->coeff->size);
       delete oldNode;
     }
     // split into three nodes
     else
     {
-      int s1 = l->startDom;
-      int e1;
+      float s1 = l->startDom;
+      float e1;
       if (_s > l->startDom && _s < l->endDom)
         e1 = _s;
       else
         e1 = _e;
 
-      int s2 = e1;
-      int e2 = l->endDom;
+      float s2 = e1;
+      float e2 = l->endDom;
 
       auto *const oldNode = static_cast<Leaf *>(l);
 
@@ -376,12 +382,16 @@ __tree_traversal__ void Inner::splitLeft(float _s, float _e)
       newInner->endDom = e2;
 
       newInner->l = new Leaf();
+      static_cast<Leaf*>(newInner->l)->coeff = new Poly();
+      
       newInner->l->type = LEAF;
       newInner->l->startDom = s1;
       newInner->l->endDom = e1;
       static_cast<Leaf *>(newInner->l)->coeff->setArray(oldNode->coeff->arr, oldNode->coeff->size);
 
       newInner->r = new Leaf();
+      static_cast<Leaf*>(newInner->r)->coeff = new Poly();
+
       newInner->r->type = LEAF;
       newInner->r->startDom = s2;
       newInner->r->endDom = e2;
@@ -403,12 +413,12 @@ __tree_traversal__ void Inner::splitRight(float _s, float _e)
     if ((_s > r->startDom && _s < r->endDom) &&
         (_e > r->startDom && _e < r->endDom))
     {
-      int s1 = r->startDom;
-      int e1 = _s;
-      int s2 = e1;
-      int e2 = _e;
-      int s3 = e2;
-      int e3 = r->endDom;
+      float s1 = r->startDom;
+      float e1 = _s;
+      float s2 = e1;
+      float e2 = _e;
+      float s3 = e2;
+      float e3 = r->endDom;
 
       Leaf *const oldNode = static_cast<Leaf *>(r);
       r = new Inner();
@@ -419,6 +429,8 @@ __tree_traversal__ void Inner::splitRight(float _s, float _e)
 
       // create node Inner1 and leaf1
       newInner1->l = new Leaf();
+      static_cast<Leaf*>(newInner1->l)->coeff = new Poly();
+      
       newInner1->l->type = LEAF;
       newInner1->l->startDom = s1;
       newInner1->l->endDom = e1;
@@ -426,36 +438,40 @@ __tree_traversal__ void Inner::splitRight(float _s, float _e)
 
       // creating Inner2 and leaf2, and leaf3
       newInner1->r = new Inner();
-      auto *const newInner2 = static_cast<Inner *>(newInner1->l);
+      auto *const newInner2 = static_cast<Inner *>(newInner1->r);
       newInner2->type = INNER;
       newInner2->startDom = s2;
       newInner2->endDom = e3;
 
       newInner2->l = new Leaf();
+      static_cast<Leaf*>(newInner2->l)->coeff = new Poly();
+
       newInner2->l->type = LEAF;
       newInner2->l->startDom = s2;
       newInner2->l->endDom = e2;
       static_cast<Leaf *>(newInner2->l)->coeff->setArray(oldNode->coeff->arr, oldNode->coeff->size);
 
       newInner2->r = new Leaf();
+      static_cast<Leaf*>(newInner2->r)->coeff = new Poly();
+
       newInner2->r->type = LEAF;
-      newInner2->r->startDom = s2;
-      newInner2->r->endDom = e2;
+      newInner2->r->startDom = s3;
+      newInner2->r->endDom = e3;
       static_cast<Leaf *>(newInner2->r)->coeff->setArray(oldNode->coeff->arr, oldNode->coeff->size);
       delete oldNode;
     }
     // split into three nodes
     else
     {
-      int s1 = r->startDom;
-      int e1;
+      float s1 = r->startDom;
+      float e1;
       if (_s > r->startDom && _s < r->endDom)
         e1 = _s;
       else
         e1 = _e;
 
-      int s2 = e1;
-      int e2 = r->endDom;
+      float s2 = e1;
+      float e2 = r->endDom;
 
       auto *const oldNode = static_cast<Leaf *>(r);
 
@@ -468,12 +484,16 @@ __tree_traversal__ void Inner::splitRight(float _s, float _e)
       newInner->endDom = e2;
 
       newInner->l = new Leaf();
+      static_cast<Leaf*>(newInner->l)->coeff = new Poly();
+
       newInner->l->type = LEAF;
       newInner->l->startDom = s1;
       newInner->l->endDom = e1;
       static_cast<Leaf *>(newInner->l)->coeff->setArray(oldNode->coeff->arr, oldNode->coeff->size);
 
       newInner->r = new Leaf();
+      static_cast<Leaf*>(newInner->r)->coeff = new Poly();
+
       newInner->r->type = LEAF;
       newInner->r->startDom = s2;
       newInner->r->endDom = e2;
@@ -485,7 +505,7 @@ __tree_traversal__ void Inner::splitRight(float _s, float _e)
 
 __tree_traversal__ void Inner::rangeMulConst(float c, float _s, float _e)
 {
-  if (_s > endDom || _e < startDom)
+  if (_s >= endDom || _e <= startDom)
     return;
 
   splitLeft(_s, _e);
@@ -497,7 +517,7 @@ __tree_traversal__ void Inner::rangeMulConst(float c, float _s, float _e)
 // multiply the range by a constant
 __tree_traversal__ void Leaf::rangeMulConst(float c, float _s, float _e)
 {
-  if (_s > endDom || _e < startDom)
+  if (_s >= endDom || _e <= startDom)
     return;
 
   coeff->multConst(c);
@@ -505,7 +525,7 @@ __tree_traversal__ void Leaf::rangeMulConst(float c, float _s, float _e)
 
 __tree_traversal__ void Inner::rangeMulVar(float _s, float _e)
 {
-  if (_s > endDom || _e < startDom)
+  if (_s >= endDom || _e <= startDom)
     return;
 
   splitLeft(_s, _e);
@@ -518,7 +538,7 @@ __tree_traversal__ void Inner::rangeMulVar(float _s, float _e)
 __tree_traversal__ void Leaf::rangeMulVar(float _s, float _e)
 {
 
-  if (_s > endDom || _e < startDom)
+  if (_s >= endDom || _e <= startDom)
     return;
 
   coeff->mulVar();
@@ -606,14 +626,22 @@ __tree_traversal__ void Leaf::square() { coeff->square(); }
 int main()
 {
   Node *root = new Inner();
-  root->buildTree(5, 0, 1, 0, 1);
+  root->type = INNER;
+  root->buildTree(2, 0, 1, 0, 1);
   // f =((f+1)*x*x+10)' f(x) = x^2 + 10
   root->addConst(1);
   root->mulVar();
   root->mulVar();
   root->addConst(10);
-  root->differentiate();
+  //root->rangeMulVar(0.1, 0.2);
+  //root->rangeMulVar(0.6, 0.9);
+  std::cout << "Function" << std::endl;
   root->print();
+  //root->differentiate();
+  root->boundedIntegrate(0, 1);
+  std::cout << "Integration result " << root->projectVal << std::endl;
+  root->project(0.5);
+  std::cout << "f(0.5) " << root->projectVal << std::endl;
 
   //Experiment 1
   //Experiment 2
