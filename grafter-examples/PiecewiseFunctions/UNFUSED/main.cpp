@@ -7,7 +7,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <vector>
-
+#include <algorithm>
 enum NodeType
 {
   LEAF,
@@ -627,21 +627,21 @@ int main()
 {
   Node *root = new Inner();
   root->type = INNER;
-  root->buildTree(2, 0, 1, 0, 1);
-  // f =((f+1)*x*x+10)' f(x) = x^2 + 10
+  root->buildTree(1, 0, 1, 0, 10);
   root->addConst(1);
-  root->mulVar();
-  root->mulVar();
-  root->addConst(10);
-  //root->rangeMulVar(0.1, 0.2);
-  //root->rangeMulVar(0.6, 0.9);
+  std::vector<int> vals;
+  for(int i=1; i<10; i++) vals.push_back(i);
+
+  std::random_shuffle(vals.begin(), vals.end());
+
+  for(int i = 1; i < 10; i++) root->rangeMulVar(vals[i], 10);
   std::cout << "Function" << std::endl;
   root->print();
   //root->differentiate();
-  root->boundedIntegrate(0, 1);
+  root->boundedIntegrate(0, 10);
   std::cout << "Integration result " << root->projectVal << std::endl;
-  root->project(0.5);
-  std::cout << "f(0.5) " << root->projectVal << std::endl;
+  root->project(1);
+  std::cout << "f(1) " << root->projectVal << std::endl;
 
   //Experiment 1
   //Experiment 2
