@@ -64,7 +64,7 @@ public:
 class TraversalSynthesizer;
 class FusionTransformer {
 private:
-  clang::Rewriter Rewriter;
+  static clang::Rewriter Rewriter;
   FunctionsFinder *FunctionsInformation;
   ASTContext *Ctx;
   DependenceAnalyzer DepAnalyzer;

@@ -30,6 +30,8 @@ bool FusionCandidatesFinder::VisitFunctionDecl(clang::FunctionDecl *FuncDecl) {
   return true;
 }
 
+clang::Rewriter FusionTransformer::Rewriter = clang::Rewriter();
+
 bool FusionCandidatesFinder::VisitCompoundStmt(
     const CompoundStmt *CompoundStmt) {
 
@@ -148,8 +150,8 @@ void FusionTransformer::performFusion(
             ->getTraversedTreeTypeDecl());
   } else {
     TraversedType = AP.getDeclAtIndex(AP.SplittedAccessPath.size() - 1)
-                              ->getType()
-                              ->getPointeeCXXRecordDecl();
+                        ->getType()
+                        ->getPointeeCXXRecordDecl();
   }
   auto fuseFunctions = [&](const CXXRecordDecl *DerivedType) {
     if (!Synthesizer->isGenerated(Candidate, HasVirtual, DerivedType)) {
