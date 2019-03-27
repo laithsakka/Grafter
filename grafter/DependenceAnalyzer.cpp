@@ -14,6 +14,14 @@
 // TODO change this to input configuration
 #define ENABLE_CODE_MOTION 1
 
+extern llvm::cl::OptionCategory TreeFuserCategory;
+
+namespace opts {
+llvm::cl::opt<bool> PrintAutomata("dump-automata", cl::desc("print automata"),
+                                  cl::init(false), cl::Optional,
+                                  cl::cat(TreeFuserCategory));
+}
+
 DependenceGraph *DependenceAnalyzer::createDependenceGraph(
     const std::vector<clang::CallExpr *> &Calls, bool HasVirtualCall,
     const clang::CXXRecordDecl *TraversedType) {
@@ -157,10 +165,17 @@ void DependenceAnalyzer::addInterTraversalDependecies(
     unordered_map<StatementInfo *, DG_Node *> &GraphNodesT2) {
 
   for (auto *Stmt1 : Traversal1->getStatements()) {
-    // FSMUtility::print(Stmt1->getTreeWritesAutomata(),
-    //                   (Traversal1->getFunctionDecl()->getNameAsString())+ to_string(Stmt1->getStatementId()) + "w", 0);
-    // FSMUtility::print(Stmt1->getTreeReadsAutomata(),
-    //                   (Traversal1->getFunctionDecl()->getNameAsString())+ to_string(Stmt1->getStatementId()) + "r", 0);
+
+    if (opts::PrintAutomata) {
+      FSMUtility::print(Stmt1->getTreeWritesAutomata(),
+                        (Traversal1->getFunctionDecl()->getNameAsString()) +
+                            to_string(Stmt1->getStatementId()) + "w",
+                        0);
+      FSMUtility::print(Stmt1->getTreeReadsAutomata(),
+                        (Traversal1->getFunctionDecl()->getNameAsString()) +
+                            to_string(Stmt1->getStatementId()) + "r",
+                        0);
+    }
 
     for (auto *Stmt2 : Traversal2->getStatements()) {
 
