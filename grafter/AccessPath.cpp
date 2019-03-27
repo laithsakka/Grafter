@@ -147,16 +147,15 @@ AccessPath::AccessPath(clang::Expr *SourceExpression,
       Logger::getStaticLogger().logError("Invalid access path");
       IsLegal = false;
     }
-    // TODO : Verify This loop is not needed because it restrict travering 
-    // completely independent structures, Note that our analsis already 
-    // guarantee that each pointer member have the tree_child annotation 
-    for (unsigned I = 1; I < SplittedAccessPath.size(); I++) {
-      if ((!EnclosingFunction->isInChildList(SplittedAccessPath[I].second)))
-      {
-        Logger::getStaticLogger().logError("Invalid access path");
-        IsLegal = false;
-      }
-    }
+    // TODO : Verify This loop is not needed because it restrict travering
+    // completely independent structures, Note that our analsis already
+    // guarantee that each pointer member have the tree_child annotation
+    // for (unsigned I = 1; I < SplittedAccessPath.size(); I++) {
+    //   if ((!EnclosingFunction->isInChildList(SplittedAccessPath[I].second))) {
+    //     Logger::getStaticLogger().logError("Invalid access path");
+    //     IsLegal = false;
+    //   }
+    // }
   }
 
   if (isOnTree()) {
