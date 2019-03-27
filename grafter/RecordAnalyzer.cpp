@@ -133,11 +133,11 @@ bool RecordsAnalyzer::VisitCXXRecordDecl(
         Stack.push(BaseClass.getType()->getAsCXXRecordDecl());
     }
 
-    if (!IsRecursive) {
-      Logger::getStaticLogger().logError(
-          "child must be recursive annotation is dropped");
-      abort();
-    }
+    // if (!IsRecursive) {
+    //   Logger::getStaticLogger().logError(
+    //       "child must be recursive annotation is dropped");
+    //   abort();
+    // }
 
     RecordInformation->RecursiveDeclarations.insert(Field);
   }
