@@ -148,6 +148,9 @@ private:
   /// The number of the traversals in the synthesized function
   int TraversalsCount;
 
+  static std::unordered_map<const CXXRecordDecl *, std::set<std::string>>
+      InsertedStubs;
+
 public:
   /// Return a new string for the given statement that is used in the new
   /// synthesized traversal

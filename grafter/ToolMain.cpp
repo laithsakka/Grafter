@@ -64,18 +64,18 @@ int main(int argc, const char **argv) {
 
     // Find candidates
     CandidatesFinder.findCandidates();
+    FusionTransformer Transformer(Ctx, &FunctionsInfo);
 
     // Perform fusion
     for (auto &Entry : CandidatesFinder.getFusionCandidates()) {
       auto *EnclosingFunctionDecl = Entry.first;
       for (auto &Candidate : Entry.second) {
         // Must be defined locally to avoid duplicate functions definitions
-        FusionTransformer Transformer(Ctx, &FunctionsInfo);
         Transformer.performFusion(Candidate, true, EnclosingFunctionDecl);
         // Commit source file changes
-        Transformer.overwriteChangedFiles();
       }
     }
+    Transformer.overwriteChangedFiles();
   }
   return 1;
 }

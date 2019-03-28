@@ -67,8 +67,9 @@ private:
   static clang::Rewriter Rewriter;
   FunctionsFinder *FunctionsInformation;
   ASTContext *Ctx;
-  DependenceAnalyzer DepAnalyzer;
-  TraversalSynthesizer *Synthesizer = nullptr;
+  static DependenceAnalyzer DepAnalyzer;
+  static TraversalSynthesizer *Synthesizer;
+
 
 public:
   /// Perform fusion transformation on a given list of candidates

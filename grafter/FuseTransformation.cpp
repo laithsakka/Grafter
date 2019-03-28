@@ -31,6 +31,8 @@ bool FusionCandidatesFinder::VisitFunctionDecl(clang::FunctionDecl *FuncDecl) {
 }
 
 clang::Rewriter FusionTransformer::Rewriter = clang::Rewriter();
+DependenceAnalyzer FusionTransformer::DepAnalyzer = DependenceAnalyzer();
+TraversalSynthesizer *FusionTransformer::Synthesizer = nullptr;
 
 bool FusionCandidatesFinder::VisitCompoundStmt(
     const CompoundStmt *CompoundStmt) {
@@ -120,7 +122,8 @@ FusionTransformer::FusionTransformer(ASTContext *Ctx,
   Rewriter.setSourceMgr(Ctx->getSourceManager(), Ctx->getLangOpts());
   this->Ctx = Ctx;
   this->FunctionsInformation = FunctionsInfo;
-  this->Synthesizer = new TraversalSynthesizer(Ctx, Rewriter, this);
+  if (!this->Synthesizer)
+    this->Synthesizer = new TraversalSynthesizer(Ctx, Rewriter, this);
 }
 
 void FusionTransformer::performFusion(

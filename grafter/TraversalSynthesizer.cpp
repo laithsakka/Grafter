@@ -20,6 +20,8 @@ std::map<clang::FunctionDecl *, int> TraversalSynthesizer::FunDeclToNameId =
     std::map<clang::FunctionDecl *, int>();
 std::map<std::vector<clang::CallExpr *>, string> TraversalSynthesizer::Stubs =
     std::map<std::vector<clang::CallExpr *>, string>();
+std::unordered_map<const CXXRecordDecl *, std::set<std::string>> InsertedStubs =
+    std::unordered_map<const CXXRecordDecl *, std::set<std::string>>();
 int TraversalSynthesizer::Count = 1;
 
 std::string toBinaryString(unsigned Input) {
@@ -589,7 +591,13 @@ void TraversalSynthesizer::WriteUpdates(
         (SynthesizedFunction.second->ForwardDeclaration) + string(";\n"));
   }
 
+  static std::set<string> InsertedFunctions;
+
   for (auto &SynthesizedFunction : SynthesizedFunctions) {
+    if(InsertedFunctions.count(SynthesizedFunction.second->FunctionName))
+    continue;
+    else 
+    InsertedFunctions.insert(SynthesizedFunction.second->FunctionName);
     Rewriter.InsertText(
         EnclosingFunctionDecl->getTypeSourceInfo()->getTypeLoc().getBeginLoc(),
         (SynthesizedFunction.second->ForwardDeclaration + "\n{\n" +
@@ -690,6 +698,7 @@ void TraversalSynthesizer::WriteUpdates(
       "\n\t//added by fuse transformer \n\t" + NewCall + "\n");
 
   // add virtual stubs
+
   for (auto &Entry : Stubs) {
     auto &Calls = Entry.first;
     auto &StubName = Entry.second;
@@ -744,6 +753,11 @@ void TraversalSynthesizer::WriteUpdates(
         (Params == "" ? "" : ", ") + string("unsigned int truncate_flags");
     Args += ", truncate_flags";
     auto LambdaFun = [&](const CXXRecordDecl *DerivedType) {
+      if (InsertedStubs[DerivedType].count(Entry.second))
+        return;
+      else
+        InsertedStubs[DerivedType].insert(Entry.second);
+
       assert(Rewriter::isRewritable(DerivedType->getLocEnd()));
       Rewriter.InsertText(
           DerivedType->getDefinition()->getLocEnd(),
