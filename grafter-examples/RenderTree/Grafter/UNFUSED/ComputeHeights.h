@@ -11,7 +11,24 @@ __abstract_access__("(0,'r','global')") inline int getCharHeight(int FontSize) {
   // we can read the info from the map or compute it
   return (FontSize * 2);
 }
-
+// simply represent a pure function (reads are handled as parameters in this
+// case)
+__abstract_access__("(0,'r','global')") inline int computeListHeight(
+    ListItems List, int FontSize, int ItemMargin, int Width) {
+  int Height = 0;
+  for (int i = 0; i < List.Size; i++) {
+    int CharsTotalSpace = computeTextHorizSpace(List.Items[i].Length, FontSize);
+    CharsTotalSpace += ItemMargin;
+    Height += (CharsTotalSpace / Width);
+    if (CharsTotalSpace % Width) {
+      Height++;
+    }
+  }
+  return Height;
+}
+__abstract_access__("(1,'w','global')") inline void LogErrorFontNotSet() {
+  printf("Font Size Not Set");
+}
 __tree_traversal__ void Document::computeHeights() {
 
 #ifdef COUNT_VISITS
@@ -94,9 +111,6 @@ __tree_traversal__ void ElementListInner::computeHeights() {
     MaxHeight = Next->MaxHeight;
   }
 }
-__abstract_access__("(1,'w','global')") inline void LogErrorFontNotSet() {
-  printf("Font Size Not Set");
-}
 
 __tree_traversal__ void TextBox::computeHeights() {
   #ifdef COUNT_VISITS
@@ -115,21 +129,6 @@ __tree_traversal__ void TextBox::computeHeights() {
   Height = Height * getCharHeight(FontStyle.Size);
 }
 
-// simply represent a pure function (reads are handled as parameters in this
-// case)
-__abstract_access__("(0,'r','global')") inline int computeListHeight(
-    ListItems List, int FontSize, int ItemMargin, int Width) {
-  int Height = 0;
-  for (int i = 0; i < List.Size; i++) {
-    int CharsTotalSpace = computeTextHorizSpace(List.Items[i].Length, FontSize);
-    CharsTotalSpace += ItemMargin;
-    Height += (CharsTotalSpace / Width);
-    if (CharsTotalSpace % Width) {
-      Height++;
-    }
-  }
-  return Height;
-}
 
 __tree_traversal__ void List::computeHeights() {
   #ifdef COUNT_VISITS
