@@ -1,6 +1,12 @@
-*
-!./grafter-examples/ .gitignore
-!./grafter
+/*
+!/grafter-examples
+!/grafter
+!.gitignore
+
+*.dot
+*.fst 
+*.ps 
+*.out 
 
 grafter-examples/PieseWiseFunctions/UNFUSED/.vscode/ipch/2bc91200b1e22cb4/main.ipch
 grafter-examples/PieseWiseFunctions/UNFUSED/.vscode/ipch/2bc91200b1e22cb4/mmap_address.bin
