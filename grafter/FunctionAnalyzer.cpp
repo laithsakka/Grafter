@@ -69,14 +69,14 @@ FunctionAnalyzer::FunctionAnalyzer(clang::FunctionDecl *FuncDeclaration) {
   return;
 }
 
-bool FunctionAnalyzer::isInCalledChildList(clang::FieldDecl *ChildDecl) const {
-  for (auto Call : TraversingCalls) {
-    clang::FieldDecl *CalledChildDecl = Call.second;
-    if (ChildDecl == CalledChildDecl)
-      return true;
-  }
-  return false;
-}
+// bool FunctionAnalyzer::isInCalledChildList(clang::FieldDecl *ChildDecl) const {
+//   for (auto Call : TraversingCalls) {
+//     clang::FieldDecl *CalledChildDecl = Call.second;
+//     if (ChildDecl == CalledChildDecl)
+//       return true;
+//   }
+//   return false;
+// }
 
 bool FunctionAnalyzer::isInChildList(clang::ValueDecl *Decl) const {
   return RecordsAnalyzer::getRecordInfo(TraversedTreeTypeDecl)
@@ -341,7 +341,7 @@ bool FunctionAnalyzer::checkFuseSema() {
 
     if (hasFuseAnnotation(Call->getCalleeDecl()->getAsFunction())) {
 
-      // If the travering call traverses "this" then we will assume the
+      // If the travering call traverses "this" then we will set the
       // traversed child to be nullptr
       if (Call->child_begin()
               ->child_begin()
@@ -349,7 +349,7 @@ bool FunctionAnalyzer::checkFuseSema() {
               ->getStmtClass() == clang::Stmt::CXXThisExprClass) {
         addTraversingCall(
             Call->getCalleeDecl()->getAsFunction()->getDefinition(), nullptr);
-        ;
+       
       } else {
         AccessPath CalledChildAccessPath(
             isGlobal()
@@ -551,7 +551,7 @@ bool FunctionAnalyzer::collectAccessPath_VisitCallExpr(clang::CallExpr *Expr) {
         Expr->dump();
         Logger::getStaticLogger().logError(
             "FunctionAnalyzer::collectAccessPath_VisitCallExpr:  strict "
-            "access call must be global for for non CXXMemberCallExpr ");
+            "access call must be global  for non CXXMemberCallExpr ");
         return false;
       }
 
@@ -685,6 +685,7 @@ bool FunctionAnalyzer::collectAccessPath_VisitCompoundStmt(
         }
 
         // self traversing calls
+        // Instead read those from the map
         if (ChildStmt->child_begin()
                 ->child_begin()
                 ->IgnoreImplicit()
@@ -731,7 +732,7 @@ bool FunctionAnalyzer::collectAccessPath_VisitIfStmt(clang::IfStmt *Stmt) {
         return false;
       }
 
-      addAccessPath(NewAccessPath, false);
+      addAccessPath(NewAccessPath, /*read*/ false);
 
     } else {
       if (!collectAccessPath_handleSubExpr(Cond)) {
@@ -929,6 +930,7 @@ bool FunctionAnalyzer::collectAccessPath_VisitCXXDeleteExpr(
 
   return true;
 }
+
 FunctionAnalyzer::~FunctionAnalyzer() {
   for (auto *StmtInfo : Statements) {
     delete StmtInfo;

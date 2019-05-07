@@ -101,37 +101,36 @@ bool RecordsAnalyzer::VisitCXXRecordDecl(
     }
 
     // Check if the type of the field is recursive
+    // std::set<const clang::CXXRecordDecl *> DeclTypes;
 
-    std::set<const clang::CXXRecordDecl *> DeclTypes;
+    // std::stack<const clang::CXXRecordDecl *> Stack;
+    // Stack.push(RecordDecl);
 
-    std::stack<const clang::CXXRecordDecl *> Stack;
-    Stack.push(RecordDecl);
+    // while (!Stack.empty()) {
+    //   const clang::CXXRecordDecl *TopOfStack = Stack.top();
+    //   Stack.pop();
+    //   DeclTypes.insert(TopOfStack);
 
-    while (!Stack.empty()) {
-      const clang::CXXRecordDecl *TopOfStack = Stack.top();
-      Stack.pop();
-      DeclTypes.insert(TopOfStack);
+    //   for (auto &BaseClass : TopOfStack->bases())
+    //     Stack.push(BaseClass.getType()->getAsCXXRecordDecl());
+    // }
 
-      for (auto &BaseClass : TopOfStack->bases())
-        Stack.push(BaseClass.getType()->getAsCXXRecordDecl());
-    }
+    // bool IsRecursive = false;
+    // //  Stack = std::stack<clang::CXXRecordDecl *const>();
+    // assert(Stack.empty());
 
-    bool IsRecursive = false;
-    //  Stack = std::stack<clang::CXXRecordDecl *const>();
-    assert(Stack.empty());
+    // Stack.push(Field->getType()->getPointeeCXXRecordDecl());
+    // while (!Stack.empty()) {
+    //   const clang::CXXRecordDecl *TopOfStack = Stack.top();
+    //   Stack.pop();
+    //   if (DeclTypes.count(TopOfStack)) {
+    //     IsRecursive = true;
+    //     break;
+    //   }
 
-    Stack.push(Field->getType()->getPointeeCXXRecordDecl());
-    while (!Stack.empty()) {
-      const clang::CXXRecordDecl *TopOfStack = Stack.top();
-      Stack.pop();
-      if (DeclTypes.count(TopOfStack)) {
-        IsRecursive = true;
-        break;
-      }
-
-      for (auto &BaseClass : TopOfStack->bases())
-        Stack.push(BaseClass.getType()->getAsCXXRecordDecl());
-    }
+    //   for (auto &BaseClass : TopOfStack->bases())
+    //     Stack.push(BaseClass.getType()->getAsCXXRecordDecl());
+    // }
 
     // if (!IsRecursive) {
     //   Logger::getStaticLogger().logError(

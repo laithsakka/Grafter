@@ -46,16 +46,19 @@ private:
   /// Declaration of the travesed tree type
   const clang::RecordDecl *TraversedTreeTypeDecl;
 
-  /// Pointer to the currently analyzed statment within the function
-  StatementInfo *CurrStatementInfo = nullptr;
-
-  int NestedIfDepth = 0;
-
+  /// Stores the statments information of the function
+  std::vector<StatementInfo *> Statements;
+ 
   /// List of called recursivly traversed children in original order
   std::vector<pair<clang::FunctionDecl *, clang::FieldDecl *>> TraversingCalls;
 
   /// Store the result of the semantics check
   bool SemanticsSatasified = true;
+
+  /// Pointer to the currently analyzed statment within the function
+  StatementInfo *CurrStatementInfo = nullptr;
+
+  int NestedIfDepth = 0;
 
   /// Add an access path to the currently traversed statement information
   void addAccessPath(AccessPath *AccessPath, bool IsRead);
@@ -66,9 +69,6 @@ private:
   /// Perform checks that confirms that the body of the function with tree-fuser
   /// semantics
   bool checkFuseSema();
-
-  /// Stores the statments information of the function
-  std::vector<StatementInfo *> Statements;
 
   bool collectAccessPath_handleStmt(clang::Stmt *Stmt);
 
@@ -138,7 +138,7 @@ public:
   void dump();
 
   /// Return true if the field is recursively visited by the function
-  bool isInCalledChildList(clang::FieldDecl *ChildDecl) const;
+  // bool isInCalledChildList(clang::FieldDecl *ChildDecl) const;
 
   /// Return true
   bool isInChildList(clang::ValueDecl *Decl) const;
